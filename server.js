@@ -1,8 +1,9 @@
-import express from 'express';
-import fs from 'fs';
-import cors from 'cors';
-import bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
+const express = require('express');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+
 
 const app = express();
 const PORT = 3000;
@@ -11,8 +12,9 @@ const DATA_FILE = './data.json';
 const USERS_FILE = './users.json';
 
 const corsOptions = {
-    origin: 'https://phrasenschwein-front.vercel.app',
-    credentials: true
+    origin: 'https://phrasenschwein-front.vercel.app', // deine Vercel-URL
+    credentials: true,
+    methods: ['GET', 'POST', 'DELETE']
 };
 
 app.use(cors(corsOptions));
