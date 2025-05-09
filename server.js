@@ -13,6 +13,7 @@ const USERS_FILE = './users.json';
 app.use(cors({
     origin: 'https://phrasenschwein-front.vercel.app',
     credentials: true
+    methods: ['GET', 'POST', 'DELETE']
 }));
 
 // Hilfsfunktionen für Daten
