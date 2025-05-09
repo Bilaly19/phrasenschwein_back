@@ -10,11 +10,13 @@ const PORT = 3000;
 const DATA_FILE = './data.json';
 const USERS_FILE = './users.json';
 
-app.use(cors({
+const corsOptions = {
     origin: 'https://phrasenschwein-front.vercel.app',
     credentials: true
-    methods: ['GET', 'POST', 'DELETE']
-}));
+};
+
+app.use(cors(corsOptions));
+
 
 // Hilfsfunktionen für Daten
 function readData() {

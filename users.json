@@ -7,9 +7,11 @@
     "admin": {
       "passwordHash": "$2b$10$ODHBjqpD5AE6KjQgb0rfhu82cyd8hlUmrYVPZLKqjqHloVITrhZn6",
       "createdAt": "2025-05-09T21:43:39.577Z"
+    },
+    "B": {
+      "passwordHash": "$2b$10$KNB6.m19/ohBu0z3Ll1tPerrfVTVktp3bePWpaYYzKa0thUb6J84e",
+      "createdAt": "2025-05-09T21:48:30.348Z"
     }
   },
-  "sessions": {
-    "11948b6a-1838-45c8-a6f8-37658b7185b8": "admin"
-  }
+  "sessions": {}
 }
