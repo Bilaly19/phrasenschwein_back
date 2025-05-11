@@ -4,21 +4,25 @@ const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
-
 const app = express();
 const PORT = 3000;
 
 const DATA_FILE = './data.json';
 const USERS_FILE = './users.json';
 
+// ✅ CORS-Konfiguration für lokal & Vercel
 const corsOptions = {
-    origin: 'https://phrasenschwein-front.vercel.app', // deine Vercel-URL
-    credentials: true,
-    methods: ['GET', 'POST', 'DELETE']
+    origin: [
+        'http://localhost:5174',
+        'https://phrasenschwein-front.vercel.app'
+    ],
+    methods: ['GET', 'POST', 'DELETE'],
+    credentials: true
 };
 
-app.use(cors(corsOptions));
 
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // Hilfsfunktionen für Daten
 function readData() {
@@ -43,11 +47,11 @@ function authMiddleware(req, res, next) {
     if (!token || !usersData.sessions?.[token]) {
         return res.status(401).json({ message: 'Nicht eingeloggt' });
     }
-    req.user = usersData.sessions[token]; // z. B. "bilal"
+    req.user = usersData.sessions[token];
     next();
 }
 
-// GET: alle Namen (öffentlich)
+// GET: alle Namen
 app.get('/api/names', (req, res) => {
     const { valuePerClick, ...rest } = readData();
     res.json(rest);
@@ -59,7 +63,7 @@ app.get('/api/config', (req, res) => {
     res.json({ valuePerClick: data.valuePerClick });
 });
 
-// POST: Konfiguration speichern (nur eingeloggte Nutzer)
+// POST: Konfiguration speichern
 app.post('/api/config', authMiddleware, (req, res) => {
     const data = readData();
     data.valuePerClick = req.body.valuePerClick;
@@ -161,7 +165,7 @@ app.post('/api/login', async (req, res) => {
     res.json({ token, username });
 });
 
-// POST: Logout (Session löschen)
+// POST: Logout
 app.post('/api/logout', (req, res) => {
     const token = req.headers.authorization;
     const usersData = readUsers();
@@ -174,7 +178,6 @@ app.post('/api/logout', (req, res) => {
     res.json({ message: 'Abgemeldet' });
 });
 
-// Server starten
 app.listen(PORT, () => {
-    console.log(`Server läuft auf http://localhost:${PORT}`);
+    console.log(`✅ Server läuft auf http://localhost:${PORT}`);
 });

@@ -11,7 +11,17 @@
     "B": {
       "passwordHash": "$2b$10$KNB6.m19/ohBu0z3Ll1tPerrfVTVktp3bePWpaYYzKa0thUb6J84e",
       "createdAt": "2025-05-09T21:48:30.348Z"
+    },
+    "test": {
+      "passwordHash": "$2b$10$PXQ0OtG3RurUlnutTNfhCeAQwtqeYDOAzUV4RwCah4.6niK6xBRoy",
+      "createdAt": "2025-05-11T19:38:35.785Z"
+    },
+    "testuser": {
+      "passwordHash": "$2b$10$B5MrRlTZ65aEfd3H2saky.DmUglecQTtKmDasSWhVxaLnSKJKQbDa",
+      "createdAt": "2025-05-11T19:54:46.492Z"
     }
   },
-  "sessions": {}
+  "sessions": {
+    "6c932bfb-0f8b-4ca8-a146-cdc4f4344f00": "admin"
+  }
 }
