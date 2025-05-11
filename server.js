@@ -12,13 +12,23 @@ const USERS_FILE = './users.json';
 
 // ✅ CORS-Konfiguration für lokal & Vercel
 const corsOptions = {
-    origin: [
-        'http://localhost:5174',
-        'https://phrasenschwein-front.vercel.app'
-    ],
-    methods: ['GET', 'POST', 'DELETE'],
-    credentials: true
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            'https://phrasenschwein.vercel.app',
+            'https://phrasenschwein-front.vercel.app',
+            'http://localhost:5173',
+            'http://localhost:5174'
+        ];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('CORS: Origin nicht erlaubt'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'DELETE']
 };
+
 
 
 app.use(cors(corsOptions));
