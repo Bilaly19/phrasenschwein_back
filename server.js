@@ -126,7 +126,7 @@ app.post('/api/register', loginRegisterRateLimit, validateBody(validators.valida
   res.status(201).json({ message: 'Benutzer registriert' });
 }));
 
-app.post('/api/login', loginRegisterRateLimit, validateBody(validators.validateRegisterLogin), asyncHandler(async (req, res) => {
+app.post('/api/login', loginRegisterRateLimit, validateBody(validators.validateLogin), asyncHandler(async (req, res) => {
   const { username, password } = req.body;
   const usersData = await readUsers(config.usersPath);
   const user = usersData.users?.[username];
