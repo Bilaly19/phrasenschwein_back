@@ -9,17 +9,33 @@ function makeValidationError(message, details) {
   };
 }
 
-function validateRegisterLogin(payload) {
-  const details = [];
-
+function validateUsername(payload, details) {
   if (typeof payload?.username !== 'string' || payload.username.length < 3 || payload.username.length > 40) {
     details.push({ path: 'username', message: 'username muss 3-40 Zeichen lang sein' });
   } else if (!USERNAME_REGEX.test(payload.username)) {
     details.push({ path: 'username', message: 'username darf nur a-z, A-Z, 0-9, . _ - enthalten' });
   }
+}
+
+function validateRegisterLogin(payload) {
+  const details = [];
+
+  validateUsername(payload, details);
 
   if (typeof payload?.password !== 'string' || payload.password.length < 8 || payload.password.length > 200) {
     details.push({ path: 'password', message: 'password muss 8-200 Zeichen lang sein' });
+  }
+
+  return details.length ? makeValidationError('Ungültige Eingabe', details) : null;
+}
+
+function validateLogin(payload) {
+  const details = [];
+
+  validateUsername(payload, details);
+
+  if (typeof payload?.password !== 'string' || payload.password.length < 1 || payload.password.length > 200) {
+    details.push({ path: 'password', message: 'password muss 1-200 Zeichen lang sein' });
   }
 
   return details.length ? makeValidationError('Ungültige Eingabe', details) : null;
@@ -93,6 +109,7 @@ module.exports = {
   validateParams,
   validators: {
     validateRegisterLogin,
+    validateLogin,
     validateConfig,
     validateNamePayload,
     validateNameParams,
