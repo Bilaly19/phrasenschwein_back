@@ -2,192 +2,169 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
-const fs = require('fs');
+
+const config = require('./config');
+const { readData, writeData, readUsers, writeUsers } = require('./storage');
+const { requestLogger, logInfo } = require('./logger');
+const { validateBody, validateParams, validators } = require('./validation');
+const { authMiddleware, extractToken, resolveSession, buildSession } = require('./middleware/auth');
+const { asyncHandler, errorHandler } = require('./middleware/error');
+const { createRateLimiter } = require('./middleware/rateLimit');
 
 const app = express();
-const PORT = 3000;
 
-const DATA_FILE = './data.json';
-const USERS_FILE = './users.json';
-
-// ✅ CORS-Konfiguration für lokal & Vercel
 const corsOptions = {
-    origin: function (origin, callback) {
-        const allowedOrigins = [
-            'https://phrasenschwein.vercel.app',
-            'https://phrasenschwein-front.vercel.app',
-            'http://localhost:5173',
-            'http://localhost:5174'
-        ];
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('CORS: Origin nicht erlaubt'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'DELETE']
+  origin(origin, callback) {
+    if (!origin || config.corsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('CORS: Origin nicht erlaubt'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE']
 };
 
-
+const loginRegisterRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 20,
+  message: 'Zu viele Versuche, bitte später erneut.'
+});
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(requestLogger);
 
-// Hilfsfunktionen für Daten
-function readData() {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-    if (!data.valuePerClick) data.valuePerClick = 0.5;
-    return data;
-}
-function writeData(data) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-function readUsers() {
-    return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-}
-function writeUsers(data) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
-}
+app.get('/api/names', asyncHandler(async (req, res) => {
+  const { valuePerClick, ...rest } = await readData(config.dataPath);
+  res.json(rest);
+}));
 
-// Auth-Middleware
-function authMiddleware(req, res, next) {
-    const token = req.headers.authorization;
-    const usersData = readUsers();
-    if (!token || !usersData.sessions?.[token]) {
-        return res.status(401).json({ message: 'Nicht eingeloggt' });
+app.get('/api/config', asyncHandler(async (req, res) => {
+  const data = await readData(config.dataPath);
+  res.json({ valuePerClick: data.valuePerClick });
+}));
+
+app.post('/api/config', authMiddleware(config.usersPath), validateBody(validators.validateConfig), asyncHandler(async (req, res) => {
+  const data = await readData(config.dataPath);
+  data.valuePerClick = req.body.valuePerClick;
+  await writeData(config.dataPath, data);
+  res.json({ message: 'Wert gespeichert' });
+}));
+
+app.post('/api/add', authMiddleware(config.usersPath), validateBody(validators.validateNamePayload), asyncHandler(async (req, res) => {
+  const data = await readData(config.dataPath);
+  const { name } = req.body;
+
+  if (!data[name]) {
+    data[name] = { count: 0, lastClickedAt: null };
+    await writeData(config.dataPath, data);
+    return res.status(201).json({ message: 'Hinzugefügt' });
+  }
+
+  return res.status(400).json({ message: 'Name existiert bereits' });
+}));
+
+app.post('/api/increment/:name', authMiddleware(config.usersPath), validateParams(validators.validateNameParams), asyncHandler(async (req, res) => {
+  const data = await readData(config.dataPath);
+  const { name } = req.params;
+
+  if (data[name]) {
+    data[name].count += 1;
+    data[name].lastClickedAt = new Date().toISOString();
+    await writeData(config.dataPath, data);
+    return res.json({ message: 'Zähler erhöht' });
+  }
+
+  return res.status(404).json({ message: 'Name nicht gefunden' });
+}));
+
+app.post('/api/reset', authMiddleware(config.usersPath), validateBody(validators.validateEmptyBody), asyncHandler(async (req, res) => {
+  const data = await readData(config.dataPath);
+
+  for (const name in data) {
+    if (name !== 'valuePerClick') {
+      data[name].count = 0;
+      data[name].lastClickedAt = null;
     }
-    req.user = usersData.sessions[token];
-    next();
-}
+  }
 
-// GET: alle Namen
-app.get('/api/names', (req, res) => {
-    const { valuePerClick, ...rest } = readData();
-    res.json(rest);
-});
+  await writeData(config.dataPath, data);
+  res.json({ message: 'Zurückgesetzt' });
+}));
 
-// GET: Konfiguration
-app.get('/api/config', (req, res) => {
-    const data = readData();
-    res.json({ valuePerClick: data.valuePerClick });
-});
+app.delete('/api/delete/:name', authMiddleware(config.usersPath), validateParams(validators.validateNameParams), asyncHandler(async (req, res) => {
+  const data = await readData(config.dataPath);
+  const { name } = req.params;
 
-// POST: Konfiguration speichern
-app.post('/api/config', authMiddleware, (req, res) => {
-    const data = readData();
-    data.valuePerClick = req.body.valuePerClick;
-    writeData(data);
-    res.json({ message: 'Wert gespeichert' });
-});
+  if (data[name]) {
+    delete data[name];
+    await writeData(config.dataPath, data);
+    return res.json({ message: 'Name gelöscht' });
+  }
 
-// POST: Namen hinzufügen
-app.post('/api/add', authMiddleware, (req, res) => {
-    const data = readData();
-    const name = req.body.name;
-    if (!data[name]) {
-        data[name] = {
-            count: 0,
-            lastClickedAt: null
-        };
-        writeData(data);
-        res.status(201).json({ message: 'Hinzugefügt' });
-    } else {
-        res.status(400).json({ message: 'Name existiert bereits' });
+  return res.status(404).json({ message: 'Name nicht gefunden' });
+}));
+
+app.post('/api/register', loginRegisterRateLimit, validateBody(validators.validateRegisterLogin), asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+  const usersData = await readUsers(config.usersPath);
+
+  if (usersData.users?.[username]) {
+    return res.status(400).json({ message: 'Benutzer existiert bereits' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  usersData.users[username] = {
+    passwordHash,
+    createdAt: new Date().toISOString()
+  };
+
+  await writeUsers(config.usersPath, usersData);
+  logInfo('Benutzer registriert', { username });
+  res.status(201).json({ message: 'Benutzer registriert' });
+}));
+
+app.post('/api/login', loginRegisterRateLimit, validateBody(validators.validateRegisterLogin), asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+  const usersData = await readUsers(config.usersPath);
+  const user = usersData.users?.[username];
+
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    return res.status(401).json({ message: 'Login fehlgeschlagen' });
+  }
+
+  const token = uuidv4();
+  usersData.sessions[token] = buildSession(username);
+  await writeUsers(config.usersPath, usersData);
+  logInfo('Benutzer eingeloggt', { username });
+  return res.json({ token, username });
+}));
+
+app.post('/api/logout', validateBody(validators.validateEmptyBody), asyncHandler(async (req, res) => {
+  const token = extractToken(req.headers.authorization);
+  const usersData = await readUsers(config.usersPath);
+
+  if (token) {
+    const session = resolveSession(usersData.sessions, token);
+    if (session) {
+      delete usersData.sessions[token];
+      await writeUsers(config.usersPath, usersData);
     }
-});
+  }
 
-// POST: Zähler erhöhen
-app.post('/api/increment/:name', authMiddleware, (req, res) => {
-    const data = readData();
-    const name = req.params.name;
-    if (data[name]) {
-        data[name].count++;
-        data[name].lastClickedAt = new Date().toISOString();
-        writeData(data);
-        res.json({ message: 'Zähler erhöht' });
-    } else {
-        res.status(404).json({ message: 'Name nicht gefunden' });
-    }
-});
+  res.json({ message: 'Abgemeldet' });
+}));
 
-// POST: Alle Zähler zurücksetzen
-app.post('/api/reset', authMiddleware, (req, res) => {
-    const data = readData();
-    for (const name in data) {
-        if (name !== 'valuePerClick') {
-            data[name].count = 0;
-            data[name].lastClickedAt = null;
-        }
-    }
-    writeData(data);
-    res.json({ message: 'Zurückgesetzt' });
-});
+app.use(errorHandler);
 
-// DELETE: Namen löschen
-app.delete('/api/delete/:name', authMiddleware, (req, res) => {
-    const data = readData();
-    const name = req.params.name;
-    if (data[name]) {
-        delete data[name];
-        writeData(data);
-        res.json({ message: 'Name gelöscht' });
-    } else {
-        res.status(404).json({ message: 'Name nicht gefunden' });
-    }
-});
-
-// POST: Benutzer registrieren
-app.post('/api/register', async (req, res) => {
-    const { username, password } = req.body;
-    const usersData = readUsers();
-
-    if (usersData.users?.[username]) {
-        return res.status(400).json({ message: 'Benutzer existiert bereits' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    if (!usersData.users) usersData.users = {};
-    if (!usersData.sessions) usersData.sessions = {};
-
-    usersData.users[username] = {
-        passwordHash,
-        createdAt: new Date().toISOString()
-    };
-
-    writeUsers(usersData);
-    res.status(201).json({ message: 'Benutzer registriert' });
-});
-
-// POST: Benutzer einloggen
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    const usersData = readUsers();
-    const user = usersData.users?.[username];
-
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-        return res.status(401).json({ message: 'Login fehlgeschlagen' });
-    }
-
-    const token = uuidv4();
-    usersData.sessions[token] = username;
-    writeUsers(usersData);
-    res.json({ token, username });
-});
-
-// POST: Logout
-app.post('/api/logout', (req, res) => {
-    const token = req.headers.authorization;
-    const usersData = readUsers();
-
-    if (token && usersData.sessions?.[token]) {
-        delete usersData.sessions[token];
-        writeUsers(usersData);
-    }
-
-    res.json({ message: 'Abgemeldet' });
-});
-
-app.listen(PORT, () => {
-    console.log(`✅ Server läuft auf http://localhost:${PORT}`);
+app.listen(config.port, () => {
+  logInfo('Server gestartet', {
+    port: config.port,
+    dataPath: config.dataPath,
+    usersPath: config.usersPath,
+    sessionTtlMinutes: config.sessionTtlMinutes,
+    corsOrigins: config.corsOrigins
+  });
 });
