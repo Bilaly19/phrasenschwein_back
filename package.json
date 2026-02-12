@@ -1,9 +1,12 @@
 {
   "name": "phrasenschwein-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "backend/src/index.js",
   "scripts": {
-    "start": "node server.js"
+    "dev": "node --watch backend/src/index.js",
+    "start": "node backend/src/index.js",
+    "test": "node --test backend/tests/*.test.js",
+    "lint": "node -e \"console.log('No linter configured yet')\""
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
