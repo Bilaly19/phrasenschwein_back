@@ -1,29 +1,22 @@
+const { loadEnv } = require('./src/backend/config/env');
+const { createLogger, createRequestLogger } = require('./src/backend/logging/logger');
+
+const logger = createLogger(loadEnv());
+
 function logInfo(message, meta = {}) {
-  console.info('[INFO]', message, meta);
+  logger.info(meta, message);
 }
 
 function logWarn(message, meta = {}) {
-  console.warn('[WARN]', message, meta);
+  logger.warn(meta, message);
 }
 
 function logError(message, meta = {}) {
-  console.error('[ERROR]', message, meta);
+  logger.error(meta, message);
 }
 
 function requestLogger(req, res, next) {
-  const start = Date.now();
-  res.on('finish', () => {
-    const durationMs = Date.now() - start;
-    logInfo('HTTP Request', {
-      method: req.method,
-      path: req.originalUrl,
-      statusCode: res.statusCode,
-      ip: req.ip,
-      durationMs
-    });
-  });
-
-  next();
+  return createRequestLogger(logger)(req, res, next);
 }
 
 module.exports = {
