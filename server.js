@@ -46,6 +46,14 @@ app.get('/api/config', asyncHandler(async (req, res) => {
   res.json({ valuePerClick: data.valuePerClick });
 }));
 
+
+app.get('/api/donation-link', asyncHandler(async (req, res) => {
+  if (!config.paypalDonationUrl) {
+    return res.status(404).json({ message: 'PayPal-Spendenlink ist nicht konfiguriert' });
+  }
+
+  return res.json({ url: config.paypalDonationUrl });
+}));
 app.post('/api/config', authMiddleware(config.usersPath), validateBody(validators.validateConfig), asyncHandler(async (req, res) => {
   const data = await readData(config.dataPath);
   data.valuePerClick = req.body.valuePerClick;

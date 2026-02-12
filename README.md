@@ -27,3 +27,7 @@ npm run dev
 ```sh
 npm run build
 ```
+
+## Environment Variables
+
+- `PAYPAL_DONATION_URL` (optional): Public PayPal donation URL that is exposed via `GET /api/donation-link` for the frontend integration.
