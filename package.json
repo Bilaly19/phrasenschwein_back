@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
+    "dev": "node --watch server.js",
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "node --check server.js app.js src/backend/app/createApp.js src/backend/services/authService.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
