@@ -1,0 +1,50 @@
+[33mcommit 3f96b5388595fa8d278bd8c201e45e7d6bf5baca[m
+Author: Bilal YIldiz <Bilal.Yildiz@Student.HTW-Berlin.de>
+Date:   Fri Feb 13 15:22:32 2026 +0100
+
+    phase0: stop tracking local runtime json files
+
+data.json
+users.json
+
+[33mcommit 523449cce463df680804540289e29e992ebb21b9[m
+Author: Bilal YIldiz <Bilal.Yildiz@Student.HTW-Berlin.de>
+Date:   Sun May 11 22:52:36 2025 +0200
+
+    Initial commit: Backend integriert5
+
+users.json
+
+[33mcommit 1b2483de171ce3f1a995b76b79670902c55470f7[m
+Author: Bilal YIldiz <Bilal.Yildiz@Student.HTW-Berlin.de>
+Date:   Fri May 9 23:50:45 2025 +0200
+
+    Initial commit: Backend integriert4
+
+users.json
+
+[33mcommit 11b4cee86bbda60ee1689ab447552aa575598f9e[m
+Author: Bilal YIldiz <Bilal.Yildiz@Student.HTW-Berlin.de>
+Date:   Fri May 9 23:45:58 2025 +0200
+
+    Initial commit: Backend integriert3
+
+users.json
+
+[33mcommit 6f19c470cee9073b737635ed92494b8ce67933ab[m
+Author: Bilal YIldiz <Bilal.Yildiz@Student.HTW-Berlin.de>
+Date:   Fri May 9 23:34:49 2025 +0200
+
+    Initial commit: Backend integriert2
+
+data.json
+users.json
+
+[33mcommit 10474c07a2c745867ef33d14a3fa55ab48453027[m
+Author: Bilal YIldiz <Bilal.Yildiz@Student.HTW-Berlin.de>
+Date:   Fri May 9 22:50:56 2025 +0200
+
+    Initial commit: Backend integriert
+
+data.json
+users.json

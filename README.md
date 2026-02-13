@@ -63,7 +63,8 @@ npm run lint
 
 - `NODE_ENV` (default: `development`)
 - `PORT` (default: `3000`)
-- `CORS_ORIGINS` (comma separated allowlist; default allows localhost dev origins)
+- `CORS_ALLOWED_ORIGINS` (comma separated allowlist; preferred name)
+- `CORS_ORIGINS` (legacy alias for `CORS_ALLOWED_ORIGINS`)
 - `DATA_PATH` (default: `./data.json`)
 - `USERS_PATH` (default: `./users.json`)
 - `SESSION_TTL_MINUTES` (default: `1440`)
@@ -71,4 +72,5 @@ npm run lint
 - `BCRYPT_ROUNDS` (default: `10`)
 - `AUTH_RATE_LIMIT_WINDOW_MS` (default: `900000`)
 - `AUTH_RATE_LIMIT_MAX` (default: `20`)
+- `AUTH_ACCOUNT_RATE_LIMIT_MAX` (default: `AUTH_RATE_LIMIT_MAX`)
 - `PAYPAL_DONATION_URL` (optional)

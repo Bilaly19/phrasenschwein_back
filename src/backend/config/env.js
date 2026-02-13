@@ -51,7 +51,7 @@ function loadEnv() {
     nodeEnv: (process.env.NODE_ENV || 'development').trim(),
     isProduction: (process.env.NODE_ENV || '').trim() === 'production',
     port: parsePort(process.env.PORT, 3000),
-    corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
+    corsOrigins: parseCorsOrigins(process.env.CORS_ALLOWED_ORIGINS ?? process.env.CORS_ORIGINS),
     sessionTtlMinutes: parsePositiveNumber(process.env.SESSION_TTL_MINUTES, 60 * 24),
     sessionRolling: parseBoolean(process.env.SESSION_ROLLING, true),
     bcryptRounds: parsePositiveNumber(process.env.BCRYPT_ROUNDS, 10),
@@ -59,7 +59,11 @@ function loadEnv() {
     dataPath: parseResolvedPath(rootDir, process.env.DATA_PATH, './data.json'),
     usersPath: parseResolvedPath(rootDir, process.env.USERS_PATH, './users.json'),
     authRateLimitWindowMs: parsePositiveNumber(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
-    authRateLimitMax: parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20)
+    authRateLimitMax: parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20),
+    authAccountRateLimitMax: parsePositiveNumber(
+      process.env.AUTH_ACCOUNT_RATE_LIMIT_MAX,
+      parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20)
+    )
   };
 }
 

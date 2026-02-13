@@ -61,7 +61,7 @@ function createApp(overrides = {}) {
   });
   const authAccountRateLimit = createRateLimiter({
     windowMs: container.config.authRateLimitWindowMs,
-    maxRequests: container.config.authRateLimitMax,
+    maxRequests: container.config.authAccountRateLimitMax || container.config.authRateLimitMax,
     keyGenerator(req) {
       const username = typeof req.body?.username === 'string'
         ? req.body.username.trim().toLowerCase()

@@ -6,7 +6,8 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "test": "node --test",
-    "test:contract": "node --test tests/contract",
+    "test:contract": "node --test tests/contract/api.contract.test.js",
+    "test:contract:security": "node --test tests/contract/security.contract.test.js",
     "lint": "node scripts/check-syntax.js"
   },
   "devDependencies": {
