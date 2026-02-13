@@ -7,7 +7,7 @@
     "start": "node server.js",
     "test": "node --test",
     "test:contract": "node --test tests/contract",
-    "lint": "node --check server.js src/backend/app/createApp.js src/backend/services/authService.js src/backend/services/namesService.js src/backend/routes/authRoutes.js src/backend/routes/namesRoutes.js"
+    "lint": "node scripts/check-syntax.js"
   },
   "devDependencies": {
     "supertest": "^7.2.2"

@@ -51,6 +51,14 @@ npm test
 npm run test:contract
 ```
 
+## CI-friendly checks
+
+```sh
+npm ci
+npm test
+npm run lint
+```
+
 ## Environment variables
 
 - `NODE_ENV` (default: `development`)
