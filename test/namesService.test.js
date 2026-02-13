@@ -1,50 +1,66 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const namesService = require('../services/namesService');
+const { NamesService } = require('../src/backend/services/namesService');
 
-function createDataStore(initial) {
+function createNamesRepositoryMock(initial) {
   let state = structuredClone(initial);
   return {
-    readData: async () => structuredClone(state),
-    writeData: async (_path, next) => {
-      state = structuredClone(next);
+    async addName(name) {
+      if (state[name]) return false;
+      state[name] = { count: 0, lastClickedAt: null };
+      return true;
     },
-    getState: () => structuredClone(state)
+    async incrementName(name) {
+      if (!state[name]) return false;
+      state[name].count += 1;
+      state[name].lastClickedAt = new Date().toISOString();
+      return true;
+    },
+    async resetNames() {
+      for (const [key, value] of Object.entries(state)) {
+        if (key === 'valuePerClick' || typeof value !== 'object') continue;
+        state[key] = { ...value, count: 0, lastClickedAt: null };
+      }
+    },
+    getState() {
+      return structuredClone(state);
+    }
   };
 }
 
-test('addName legt neuen Namen mit count=0 an', async () => {
-  const store = createDataStore({ valuePerClick: 0.5 });
-  const created = await namesService.addName(store.readData, store.writeData, 'unused', 'Anna');
+test('addName creates a new name with count=0', async () => {
+  const repo = createNamesRepositoryMock({ valuePerClick: 0.5 });
+  const service = new NamesService({ namesRepository: repo });
 
-  assert.equal(created, true);
-  assert.deepEqual(store.getState().Anna, { count: 0, lastClickedAt: null });
+  await service.addName('Anna');
+  assert.deepEqual(repo.getState().Anna, { count: 0, lastClickedAt: null });
 });
 
-test('incrementName erhöht count und setzt Timestamp', async () => {
-  const store = createDataStore({
+test('incrementName increases count and sets timestamp', async () => {
+  const repo = createNamesRepositoryMock({
     valuePerClick: 0.5,
     Anna: { count: 1, lastClickedAt: null }
   });
+  const service = new NamesService({ namesRepository: repo });
 
-  const found = await namesService.incrementName(store.readData, store.writeData, 'unused', 'Anna');
-  const state = store.getState();
+  await service.incrementName('Anna');
+  const state = repo.getState();
 
-  assert.equal(found, true);
   assert.equal(state.Anna.count, 2);
   assert.match(state.Anna.lastClickedAt, /^\d{4}-\d{2}-\d{2}T/);
 });
 
-test('resetNames setzt alle Namen zurück und lässt valuePerClick unverändert', async () => {
-  const store = createDataStore({
+test('resetNames resets counters and keeps valuePerClick', async () => {
+  const repo = createNamesRepositoryMock({
     valuePerClick: 0.75,
     Anna: { count: 2, lastClickedAt: '2024-01-01T00:00:00.000Z' },
     Ben: { count: 5, lastClickedAt: '2024-01-01T00:00:00.000Z' }
   });
+  const service = new NamesService({ namesRepository: repo });
 
-  await namesService.resetNames(store.readData, store.writeData, 'unused');
-  const state = store.getState();
+  await service.resetNames();
+  const state = repo.getState();
 
   assert.equal(state.valuePerClick, 0.75);
   assert.deepEqual(state.Anna, { count: 0, lastClickedAt: null });

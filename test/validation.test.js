@@ -1,26 +1,30 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { validators } = require('../validation');
+const {
+  registerSchema,
+  configSchema,
+  addNameSchema
+} = require('../src/backend/validators/schemas');
 
-test('validateRegisterLogin akzeptiert gültige Nutzerdaten', () => {
-  const result = validators.validateRegisterLogin({ username: 'user_123', password: '12345678' });
-  assert.equal(result, null);
+test('registerSchema accepts valid credentials', () => {
+  const result = registerSchema({ username: 'user_123', password: '12345678' });
+  assert.equal(result.success, true);
 });
 
-test('validateRegisterLogin lehnt kurze Passwörter ab', () => {
-  const result = validators.validateRegisterLogin({ username: 'user_123', password: '123' });
-  assert.equal(result.message, 'Ungültige Eingabe');
+test('registerSchema rejects short passwords', () => {
+  const result = registerSchema({ username: 'user_123', password: '123' });
+  assert.equal(result.success, false);
   assert.ok(result.details.some((detail) => detail.path === 'password'));
 });
 
-test('validateNamePayload lehnt Steuerzeichen ab', () => {
-  const result = validators.validateNamePayload({ name: 'Max\nMustermann' });
-  assert.equal(result.message, 'Ungültige Eingabe');
+test('addNameSchema rejects control characters', () => {
+  const result = addNameSchema({ name: 'Max\nMustermann' });
+  assert.equal(result.success, false);
   assert.ok(result.details.some((detail) => detail.message.includes('Steuerzeichen')));
 });
 
-test('validateConfig akzeptiert Zahlen im erlaubten Bereich', () => {
-  assert.equal(validators.validateConfig({ valuePerClick: 0 }), null);
-  assert.equal(validators.validateConfig({ valuePerClick: 1000 }), null);
+test('configSchema accepts numbers in valid range', () => {
+  assert.equal(configSchema({ valuePerClick: 0 }).success, true);
+  assert.equal(configSchema({ valuePerClick: 1000 }).success, true);
 });

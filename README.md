@@ -2,6 +2,8 @@
 
 Express backend for Phrasenschwein. The active runtime is `server.js` and it boots `src/backend/app/createApp.js`.
 
+This repository is backend-only. Legacy root modules and frontend scaffold files were removed in favor of `src/backend/*` as the single runtime source.
+
 ## Runtime entrypoints
 
 - `server.js`: starts the HTTP server
@@ -43,6 +45,10 @@ npm start
 
 ```sh
 npm test
+```
+
+```sh
+npm run test:contract
 ```
 
 ## Environment variables
