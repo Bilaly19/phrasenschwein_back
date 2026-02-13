@@ -28,3 +28,9 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# Local runtime data and secrets
+.env
+.env.local
+data.json
+users.json

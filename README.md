@@ -1,40 +1,60 @@
 # phrasenschewein_backend
 
-Backend für das Phrasenschwein mit Express, Datei-Persistenz und Token-basierter Session-Verwaltung.
+Express backend for Phrasenschwein. The active runtime is `server.js` and it boots `src/backend/app/createApp.js`.
 
-## Projektstruktur (aktuell)
+## Runtime entrypoints
 
-- `app.js`: Baut die Express-App inkl. Routing und Middleware auf.
-- `server.js`: Startet den HTTP-Server (Bootstrap/Entry Point).
-- `services/namesService.js`: Geschäftslogik für Namen und Konfiguration.
-- `services/authService.js`: Geschäftslogik für Registrierung, Login und Logout.
-- `storage.js`: Lesen/Schreiben + Normalisierung der JSON-Dateien.
-- `middleware/`: Auth, Error-Handling, Rate-Limiting.
-- `test/`: Unit- und Integrations-Tests mit `node:test`.
+- `server.js`: starts the HTTP server
+- `src/backend/app/createApp.js`: builds the active backend app and wiring
 
-## Project Setup
+## Install
 
 ```sh
 npm install
 ```
 
-## Start
+## Local setup (required once)
+
+1. Create env file from template:
+```powershell
+Copy-Item .env.example .env
+```
+2. Create local JSON storage files from templates:
+```powershell
+Copy-Item data.example.json data.json
+Copy-Item users.example.json users.json
+```
+
+`data.json`, `users.json`, and `.env` are local-only and ignored by git.
+
+## Run
+
+```sh
+npm run dev
+```
+
+or
 
 ```sh
 npm start
 ```
 
-## Tests
+## Test
 
 ```sh
 npm test
 ```
 
-## Environment Variables
+## Environment variables
 
-- `PAYPAL_DONATION_URL` (optional): Public PayPal donation URL that is exposed via `GET /api/donation-link` for the frontend integration.
-- `PORT` (optional): Port für den Server (Default: `3000`).
-- `DATA_PATH` (optional): Pfad zur Daten-Datei (Default: `./data.json`).
-- `USERS_PATH` (optional): Pfad zur User-Datei (Default: `./users.json`).
-- `SESSION_TTL_MINUTES` (optional): Session-Lebensdauer in Minuten.
-- `CORS_ORIGINS` (optional): Komma-separierte Liste erlaubter Origins.
+- `NODE_ENV` (default: `development`)
+- `PORT` (default: `3000`)
+- `CORS_ORIGINS` (comma separated allowlist; default allows localhost dev origins)
+- `DATA_PATH` (default: `./data.json`)
+- `USERS_PATH` (default: `./users.json`)
+- `SESSION_TTL_MINUTES` (default: `1440`)
+- `SESSION_ROLLING` (default: `true`)
+- `BCRYPT_ROUNDS` (default: `10`)
+- `AUTH_RATE_LIMIT_WINDOW_MS` (default: `900000`)
+- `AUTH_RATE_LIMIT_MAX` (default: `20`)
+- `PAYPAL_DONATION_URL` (optional)
