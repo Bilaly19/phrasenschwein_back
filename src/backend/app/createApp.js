@@ -59,10 +59,26 @@ function createApp(overrides = {}) {
     windowMs: container.config.authRateLimitWindowMs,
     maxRequests: container.config.authRateLimitMax
   });
+  const authAccountRateLimit = createRateLimiter({
+    windowMs: container.config.authRateLimitWindowMs,
+    maxRequests: container.config.authRateLimitMax,
+    keyGenerator(req) {
+      const username = typeof req.body?.username === 'string'
+        ? req.body.username.trim().toLowerCase()
+        : '';
+      return username ? `acct:${username}` : null;
+    },
+    maxBuckets: 10000
+  });
   const authMiddleware = createAuthMiddleware({ authService: container.authService });
 
   app.use('/api', createNamesRoutes({ namesController: container.namesController, authMiddleware }));
-  app.use('/api', createAuthRoutes({ authController: container.authController, authRateLimit, authMiddleware }));
+  app.use('/api', createAuthRoutes({
+    authController: container.authController,
+    authRateLimit,
+    authAccountRateLimit,
+    authMiddleware
+  }));
 
   app.use(notFoundHandler);
   app.use(createErrorHandler({ logger: container.logger }));

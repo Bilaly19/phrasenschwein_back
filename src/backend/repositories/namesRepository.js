@@ -1,4 +1,4 @@
-const { readJsonOrDefault, writeJsonAtomic } = require('./jsonFileStore');
+const { readJsonOrDefault, writeJsonAtomic, withFileLock } = require('./jsonFileStore');
 
 const defaultData = {
   valuePerClick: 0.5
@@ -28,48 +28,58 @@ class JsonNamesRepository {
   }
 
   async setValuePerClick(valuePerClick) {
-    const data = await this.readRaw();
-    data.valuePerClick = valuePerClick;
-    await this.writeRaw(data);
+    await withFileLock(this.dataPath, async () => {
+      const data = await this.readRaw();
+      data.valuePerClick = valuePerClick;
+      await this.writeRaw(data);
+    });
   }
 
   async addName(name) {
-    const data = await this.readRaw();
-    if (data[name]) return false;
+    return withFileLock(this.dataPath, async () => {
+      const data = await this.readRaw();
+      if (data[name]) return false;
 
-    data[name] = { count: 0, lastClickedAt: null };
-    await this.writeRaw(data);
-    return true;
+      data[name] = { count: 0, lastClickedAt: null };
+      await this.writeRaw(data);
+      return true;
+    });
   }
 
   async incrementName(name) {
-    const data = await this.readRaw();
-    if (!data[name]) return false;
+    return withFileLock(this.dataPath, async () => {
+      const data = await this.readRaw();
+      if (!data[name]) return false;
 
-    data[name].count += 1;
-    data[name].lastClickedAt = new Date().toISOString();
-    await this.writeRaw(data);
-    return true;
+      data[name].count += 1;
+      data[name].lastClickedAt = new Date().toISOString();
+      await this.writeRaw(data);
+      return true;
+    });
   }
 
   async resetNames() {
-    const data = await this.readRaw();
+    await withFileLock(this.dataPath, async () => {
+      const data = await this.readRaw();
 
-    for (const [name, value] of Object.entries(data)) {
-      if (name === 'valuePerClick' || typeof value !== 'object') continue;
-      data[name] = { ...value, count: 0, lastClickedAt: null };
-    }
+      for (const [name, value] of Object.entries(data)) {
+        if (name === 'valuePerClick' || typeof value !== 'object') continue;
+        data[name] = { ...value, count: 0, lastClickedAt: null };
+      }
 
-    await this.writeRaw(data);
+      await this.writeRaw(data);
+    });
   }
 
   async deleteName(name) {
-    const data = await this.readRaw();
-    if (!data[name]) return false;
+    return withFileLock(this.dataPath, async () => {
+      const data = await this.readRaw();
+      if (!data[name]) return false;
 
-    delete data[name];
-    await this.writeRaw(data);
-    return true;
+      delete data[name];
+      await this.writeRaw(data);
+      return true;
+    });
   }
 }
 

@@ -11,9 +11,7 @@ function createErrorHandler({ logger }) {
       return;
     }
 
-    const error = err instanceof AppError
-      ? err
-      : new AppError(500, 'INTERNAL_ERROR', 'Interner Fehler');
+    const error = normalizeError(err);
 
     logger.error({
       err,
@@ -26,6 +24,18 @@ function createErrorHandler({ logger }) {
 
     sendError(res, error);
   };
+}
+
+function normalizeError(err) {
+  if (err instanceof AppError) {
+    return err;
+  }
+
+  if (typeof err?.message === 'string' && err.message.startsWith('CORS:')) {
+    return new AppError(403, 'CORS_ORIGIN_DENIED', 'Origin nicht erlaubt');
+  }
+
+  return new AppError(500, 'INTERNAL_ERROR', 'Interner Fehler');
 }
 
 module.exports = {

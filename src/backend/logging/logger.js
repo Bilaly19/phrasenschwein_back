@@ -32,12 +32,56 @@ function createLogger() {
 }
 
 function sanitize(value) {
-  if (!value || typeof value !== 'object') return value;
-  const cloned = JSON.parse(JSON.stringify(value));
-  if (cloned.password) cloned.password = '[REDACTED]';
-  if (cloned.passwordHash) cloned.passwordHash = '[REDACTED]';
-  if (cloned.authorization) cloned.authorization = '[REDACTED]';
-  return cloned;
+  return sanitizeValue(value, new WeakSet(), '');
+}
+
+function sanitizeValue(value, seen, keyName) {
+  if (isSensitiveKey(keyName)) {
+    return '[REDACTED]';
+  }
+
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value !== 'object') {
+    return value;
+  }
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack
+    };
+  }
+
+  if (seen.has(value)) {
+    return '[CIRCULAR]';
+  }
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeValue(item, seen, ''));
+  }
+
+  const result = {};
+  for (const [key, child] of Object.entries(value)) {
+    result[key] = sanitizeValue(child, seen, key);
+  }
+  return result;
+}
+
+function isSensitiveKey(keyName) {
+  const key = String(keyName || '').toLowerCase();
+  if (!key) return false;
+
+  return key === 'password'
+    || key === 'passwordhash'
+    || key === 'authorization'
+    || key === 'token'
+    || key === 'session'
+    || key === 'cookie';
 }
 
 function createRequestLogger(logger) {

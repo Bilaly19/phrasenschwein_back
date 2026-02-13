@@ -1,5 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const writeLocks = new Map();
 
 async function ensureDir(filePath) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -27,7 +28,23 @@ async function readJsonOrDefault(filePath, fallback) {
   }
 }
 
+function withFileLock(filePath, work) {
+  const previous = writeLocks.get(filePath) || Promise.resolve();
+  const run = previous
+    .catch(() => {})
+    .then(work);
+
+  writeLocks.set(filePath, run.finally(() => {
+    if (writeLocks.get(filePath) === run) {
+      writeLocks.delete(filePath);
+    }
+  }));
+
+  return run;
+}
+
 module.exports = {
   readJsonOrDefault,
-  writeJsonAtomic
+  writeJsonAtomic,
+  withFileLock
 };

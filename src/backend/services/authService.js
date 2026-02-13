@@ -18,6 +18,10 @@ class AuthService {
     };
   }
 
+  hashSessionToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
   isSessionExpired(session) {
     const expiresAt = new Date(session.expiresAt).getTime();
     return !Number.isFinite(expiresAt) || expiresAt <= Date.now();
@@ -44,8 +48,9 @@ class AuthService {
     }
 
     const token = crypto.randomUUID();
+    const tokenHash = this.hashSessionToken(token);
     const session = this.buildSession(username);
-    await this.usersRepository.createSession(token, session);
+    await this.usersRepository.createSession(tokenHash, session);
 
     return {
       token,
@@ -56,7 +61,8 @@ class AuthService {
 
   async logout(token) {
     if (!token) return;
-    await this.usersRepository.deleteSession(token);
+    const tokenHash = this.hashSessionToken(token);
+    await this.usersRepository.deleteSession(tokenHash, token);
   }
 
   async getSessionByToken(token, { touch = false } = {}) {
@@ -64,21 +70,22 @@ class AuthService {
       throw new AppError(401, 'UNAUTHORIZED', 'Nicht eingeloggt');
     }
 
-    await this.usersRepository.cleanupExpiredSessions(new Date().toISOString(), token);
-    const session = await this.usersRepository.findSession(token);
+    const tokenHash = this.hashSessionToken(token);
+    await this.usersRepository.cleanupExpiredSessions(new Date().toISOString(), tokenHash, token);
+    const session = await this.usersRepository.findSession(tokenHash, token);
 
     if (!session) {
       throw new AppError(401, 'UNAUTHORIZED', 'Nicht eingeloggt');
     }
 
     if (this.isSessionExpired(session)) {
-      await this.usersRepository.deleteSession(token);
+      await this.usersRepository.deleteSession(tokenHash, token);
       throw new AppError(401, 'SESSION_EXPIRED', 'Session abgelaufen');
     }
 
     if (touch && this.sessionRolling) {
       const nextExpiresAt = new Date(Date.now() + this.sessionTtlMinutes * 60 * 1000).toISOString();
-      await this.usersRepository.updateSession(token, (current) => ({ ...current, expiresAt: nextExpiresAt }));
+      await this.usersRepository.updateSession(tokenHash, (current) => ({ ...current, expiresAt: nextExpiresAt }), token);
       session.expiresAt = nextExpiresAt;
     }
 
