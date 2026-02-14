@@ -74,7 +74,10 @@ test('GET /api/donation-link returns 404 when not configured, 200 when configure
   t.after(async () => withoutLink.cleanup());
   const notFoundRes = await withoutLink.req.get('/api/donation-link');
   assert.equal(notFoundRes.status, 404);
-  assert.equal(notFoundRes.body.message, 'PayPal-Spendenlink ist nicht konfiguriert');
+  assert.equal(notFoundRes.body.ok, false);
+  assert.equal(notFoundRes.body.error.code, 'DONATION_LINK_NOT_CONFIGURED');
+  assert.equal(notFoundRes.body.error.message, 'PayPal-Spendenlink ist nicht konfiguriert');
+  assert.equal(Array.isArray(notFoundRes.body.error.details), true);
 
   const withLink = await createContractContext({ paypalDonationUrl: 'https://paypal.example/donate' });
   t.after(async () => withLink.cleanup());

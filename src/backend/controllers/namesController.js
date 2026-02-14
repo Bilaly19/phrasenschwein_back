@@ -1,3 +1,5 @@
+const { AppError } = require('../utils/http');
+
 class NamesController {
   constructor({ namesService, config }) {
     this.namesService = namesService;
@@ -16,8 +18,7 @@ class NamesController {
 
   getDonationLink = async (_req, res) => {
     if (!this.config.paypalDonationUrl) {
-      res.status(404).json({ message: 'PayPal-Spendenlink ist nicht konfiguriert' });
-      return;
+      throw new AppError(404, 'DONATION_LINK_NOT_CONFIGURED', 'PayPal-Spendenlink ist nicht konfiguriert');
     }
 
     res.json({ url: this.config.paypalDonationUrl });
