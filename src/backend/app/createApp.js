@@ -55,6 +55,14 @@ function createApp(overrides = {}) {
   app.use(express.json({ limit: '100kb' }));
   app.use(createRequestLogger(container.logger));
 
+  app.get('/health', (req, res) => {
+    const payload = { ok: true, status: 'ok' };
+    if (req.id) {
+      payload.requestId = req.id;
+    }
+    res.status(200).json(payload);
+  });
+
   const authRateLimit = createRateLimiter({
     windowMs: container.config.authRateLimitWindowMs,
     maxRequests: container.config.authRateLimitMax

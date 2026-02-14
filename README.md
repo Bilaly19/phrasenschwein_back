@@ -59,6 +59,22 @@ npm test
 npm run lint
 ```
 
+## Production startup checklist
+
+1. Set required environment variables:
+- `NODE_ENV=production`
+- `PORT` (for example `3000`)
+- `CORS_ALLOWED_ORIGINS` (comma-separated allowlist, no wildcards in production)
+2. Ensure local storage files exist before boot:
+- `data.json` must exist
+- `users.json` must exist
+3. Confirm those storage files are not tracked by git:
+- `data.json` and `users.json` are ignored and should stay local-only
+4. Start server:
+```sh
+npm start
+```
+
 ## Environment variables
 
 - `NODE_ENV` (default: `development`)
