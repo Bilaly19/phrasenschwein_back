@@ -15,7 +15,8 @@ function createAuthMiddleware({ authService }) {
       req.auth = {
         token,
         username: session.username,
-        expiresAt: session.expiresAt
+        expiresAt: session.expiresAt,
+        roles: Array.isArray(session.roles) ? session.roles : ['user']
       };
 
       next();

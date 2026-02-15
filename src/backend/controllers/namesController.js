@@ -24,29 +24,38 @@ class NamesController {
     res.json({ url: this.config.paypalDonationUrl });
   };
 
+  assertAdmin(req) {
+    if (!req.auth?.roles?.includes('admin')) {
+      throw new AppError(403, 'FORBIDDEN', 'Nicht erlaubt');
+    }
+  }
+
   updateConfig = async (req, res) => {
+    this.assertAdmin(req);
     await this.namesService.updateConfig(req.body.valuePerClick);
     res.json({ message: 'Wert gespeichert' });
   };
 
   addName = async (req, res) => {
     await this.namesService.addName(req.body.name);
-    res.status(201).json({ message: 'HinzugefÃ¼gt' });
+    res.status(201).json({ message: 'Hinzugefügt' });
   };
 
   incrementName = async (req, res) => {
     await this.namesService.incrementName(req.params.name);
-    res.json({ message: 'ZÃ¤hler erhÃ¶ht' });
+    res.json({ message: 'Zähler erhöht' });
   };
 
-  resetNames = async (_req, res) => {
+  resetNames = async (req, res) => {
+    this.assertAdmin(req);
     await this.namesService.resetNames();
-    res.json({ message: 'ZurÃ¼ckgesetzt' });
+    res.json({ message: 'Zurückgesetzt' });
   };
 
   deleteName = async (req, res) => {
+    this.assertAdmin(req);
     await this.namesService.deleteName(req.params.name);
-    res.json({ message: 'Name gelÃ¶scht' });
+    res.json({ message: 'Name gelöscht' });
   };
 }
 

@@ -36,7 +36,8 @@ class AuthController {
   whoAmI = async (req, res) => {
     res.json({
       username: req.auth.username,
-      expiresAt: req.auth.expiresAt
+      expiresAt: req.auth.expiresAt,
+      roles: Array.isArray(req.auth.roles) ? req.auth.roles : ['user']
     });
   };
 }

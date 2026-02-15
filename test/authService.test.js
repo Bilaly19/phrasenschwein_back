@@ -88,3 +88,19 @@ test('logout revokes active session token', async () => {
   await authService.logout(token);
   assert.equal(repo.sessions[tokenHash], undefined);
 });
+
+test('register stores default role user', async () => {
+  const repo = createUsersRepositoryMock();
+  const authService = new AuthService({ usersRepository: repo, sessionTtlMinutes: 60, sessionRolling: true, bcryptRounds: 4 });
+
+  await authService.register('new-user', '12345678');
+  assert.deepEqual(repo.users['new-user'].roles, ['user']);
+});
+
+test('register admin keeps admin and user roles', async () => {
+  const repo = createUsersRepositoryMock();
+  const authService = new AuthService({ usersRepository: repo, sessionTtlMinutes: 60, sessionRolling: true, bcryptRounds: 4 });
+
+  await authService.register('admin-user', '12345678', { roles: ['admin'] });
+  assert.deepEqual(repo.users['admin-user'].roles, ['admin', 'user']);
+});

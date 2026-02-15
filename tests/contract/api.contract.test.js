@@ -51,6 +51,17 @@ async function registerAndLogin(req, username = 'alice', password = '12345678') 
   return loginRes.body;
 }
 
+async function promoteUserToAdmin(usersPath, username) {
+  const raw = await fs.readFile(usersPath, 'utf8');
+  const data = JSON.parse(raw);
+  if (!data.users[username]) {
+    throw new Error(`User not found: ${username}`);
+  }
+
+  data.users[username].roles = ['admin', 'user'];
+  await fs.writeFile(usersPath, JSON.stringify(data, null, 2), 'utf8');
+}
+
 test('GET /api/names and GET /api/config return expected public shapes', async (t) => {
   const ctx = await createContractContext({
     seedData: {
@@ -139,6 +150,7 @@ test('auth-required routes reject missing token and expose session when logged i
   assert.equal(sessionRes.status, 200);
   assert.equal(sessionRes.body.username, 'bob');
   assert.equal(typeof sessionRes.body.expiresAt, 'string');
+  assert.deepEqual(sessionRes.body.roles, ['user']);
 });
 
 test('POST /api/logout revokes token and returns stable response', async (t) => {
@@ -176,9 +188,9 @@ test('names mutation endpoints require auth and support add/increment/reset/dele
   const login = await registerAndLogin(ctx.req, 'dora', '12345678');
   const auth = { authorization: `Bearer ${login.token}` };
 
-  const updateConfig = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: 0.4 });
-  assert.equal(updateConfig.status, 200);
-  assert.deepEqual(updateConfig.body, { message: 'Wert gespeichert' });
+  const updateConfigForbidden = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: 0.4 });
+  assert.equal(updateConfigForbidden.status, 403);
+  assert.equal(updateConfigForbidden.body.error.code, 'FORBIDDEN');
 
   const addRes = await ctx.req.post('/api/add').set(auth).send({ name: 'Anna' });
   assert.equal(addRes.status, 201);
@@ -187,6 +199,20 @@ test('names mutation endpoints require auth and support add/increment/reset/dele
   const incrementRes = await ctx.req.post('/api/increment/Anna').set(auth).send({});
   assert.equal(incrementRes.status, 200);
   assert.equal(typeof incrementRes.body.message, 'string');
+
+  const resetForbidden = await ctx.req.post('/api/reset').set(auth).send({});
+  assert.equal(resetForbidden.status, 403);
+  assert.equal(resetForbidden.body.error.code, 'FORBIDDEN');
+
+  const deleteForbidden = await ctx.req.delete('/api/delete/Anna').set(auth);
+  assert.equal(deleteForbidden.status, 403);
+  assert.equal(deleteForbidden.body.error.code, 'FORBIDDEN');
+
+  await promoteUserToAdmin(ctx.usersPath, 'dora');
+
+  const updateConfig = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: 0.4 });
+  assert.equal(updateConfig.status, 200);
+  assert.deepEqual(updateConfig.body, { message: 'Wert gespeichert' });
 
   const namesAfterIncrement = await ctx.req.get('/api/names');
   assert.equal(namesAfterIncrement.status, 200);
@@ -206,6 +232,7 @@ test('names endpoints return expected validation and not-found error cases', asy
   t.after(async () => ctx.cleanup());
   const login = await registerAndLogin(ctx.req, 'erik', '12345678');
   const auth = { authorization: `Bearer ${login.token}` };
+  await promoteUserToAdmin(ctx.usersPath, 'erik');
 
   const invalidConfig = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: -1 });
   assert.equal(invalidConfig.status, 400);

@@ -82,6 +82,7 @@ function loadEnv() {
       Math.max(parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20), 60)
     ),
     devSeedUserEnabled: parseEnabledByOne(process.env.DEV_SEED_USER),
+    devSeedIsAdmin: parseEnabledByOne(process.env.DEV_SEED_IS_ADMIN),
     devSeedUsername: process.env.DEV_SEED_USERNAME?.trim() || '',
     devSeedPassword: process.env.DEV_SEED_PASSWORD || ''
   };

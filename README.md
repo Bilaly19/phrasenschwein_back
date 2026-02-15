@@ -29,6 +29,7 @@ Copy-Item users.example.json users.json
 3. Optional development seed user:
 - Set `DEV_SEED_USER=1`
 - Set `DEV_SEED_USERNAME` and `DEV_SEED_PASSWORD`
+- Optional: set `DEV_SEED_IS_ADMIN=1` to seed with roles `['admin', 'user']`
 - This only runs when `NODE_ENV=development` and is ignored in production.
 
 `data.json`, `users.json`, and `.env` are local-only and ignored by git.
@@ -89,6 +90,7 @@ npm start
 - `DATA_PATH` (default: `./data.json`)
 - `USERS_PATH` (default: `./users.json`)
 - `DEV_SEED_USER` (default: `0`; when set to `1` in development, creates a default user if missing)
+- `DEV_SEED_IS_ADMIN` (default: `0`; when set to `1` with `DEV_SEED_USER=1`, seeds roles `['admin', 'user']`)
 - `DEV_SEED_USERNAME` (required when `DEV_SEED_USER=1`)
 - `DEV_SEED_PASSWORD` (required when `DEV_SEED_USER=1`)
 - `SESSION_TTL_MINUTES` (default: `1440`)
@@ -105,3 +107,4 @@ npm start
 - `GET /api/session` requires `Authorization: Bearer <token>`.
   Without a valid header it returns `401` with `error.code = UNAUTHORIZED`.
 - `POST /api/logout` also requires `Authorization: Bearer <token>`.
+- Role storage is per user in `users.json` via `roles` array. For admin users use `roles: ['admin', 'user']`.

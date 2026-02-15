@@ -27,12 +27,25 @@ class AuthService {
     return !Number.isFinite(expiresAt) || expiresAt <= Date.now();
   }
 
-  async register(username, password) {
+  normalizeRoles(roles) {
+    const source = Array.isArray(roles) ? roles : [];
+    const normalized = new Set(
+      source
+        .filter((role) => typeof role === 'string')
+        .map((role) => role.trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    normalized.add('user');
+    return Array.from(normalized);
+  }
+
+  async register(username, password, { roles = ['user'] } = {}) {
     const passwordHash = await bcrypt.hash(password, this.bcryptRounds);
     const created = await this.usersRepository.createUser(username, {
       passwordHash,
       createdAt: new Date().toISOString(),
-      roles: ['user']
+      roles: this.normalizeRoles(roles)
     });
 
     if (!created) {
@@ -89,7 +102,12 @@ class AuthService {
       session.expiresAt = nextExpiresAt;
     }
 
-    return session;
+    const user = await this.usersRepository.findUser(session.username);
+
+    return {
+      ...session,
+      roles: this.normalizeRoles(user?.roles)
+    };
   }
 }
 
