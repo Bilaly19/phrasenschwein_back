@@ -28,6 +28,14 @@ function parseBoolean(rawValue, fallback) {
   return fallback;
 }
 
+function parseEnabledByOne(rawValue) {
+  if (rawValue === undefined || rawValue === null) {
+    return false;
+  }
+
+  return String(rawValue).trim() === '1';
+}
+
 function parseCorsOrigins(rawValue) {
   if (!rawValue || !rawValue.trim()) {
     return DEFAULT_CORS_ORIGINS;
@@ -63,7 +71,10 @@ function loadEnv() {
     authAccountRateLimitMax: parsePositiveNumber(
       process.env.AUTH_ACCOUNT_RATE_LIMIT_MAX,
       parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20)
-    )
+    ),
+    devSeedUserEnabled: parseEnabledByOne(process.env.DEV_SEED_USER),
+    devSeedUsername: process.env.DEV_SEED_USERNAME?.trim() || '',
+    devSeedPassword: process.env.DEV_SEED_PASSWORD || ''
   };
 }
 

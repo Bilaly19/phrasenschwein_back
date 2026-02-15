@@ -26,6 +26,10 @@ Copy-Item .env.example .env
 Copy-Item data.example.json data.json
 Copy-Item users.example.json users.json
 ```
+3. Optional development seed user:
+- Set `DEV_SEED_USER=1`
+- Set `DEV_SEED_USERNAME` and `DEV_SEED_PASSWORD`
+- This only runs when `NODE_ENV=development` and is ignored in production.
 
 `data.json`, `users.json`, and `.env` are local-only and ignored by git.
 
@@ -83,6 +87,9 @@ npm start
 - `CORS_ORIGINS` (legacy alias for `CORS_ALLOWED_ORIGINS`)
 - `DATA_PATH` (default: `./data.json`)
 - `USERS_PATH` (default: `./users.json`)
+- `DEV_SEED_USER` (default: `0`; when set to `1` in development, creates a default user if missing)
+- `DEV_SEED_USERNAME` (required when `DEV_SEED_USER=1`)
+- `DEV_SEED_PASSWORD` (required when `DEV_SEED_USER=1`)
 - `SESSION_TTL_MINUTES` (default: `1440`)
 - `SESSION_ROLLING` (default: `true`)
 - `BCRYPT_ROUNDS` (default: `10`)
