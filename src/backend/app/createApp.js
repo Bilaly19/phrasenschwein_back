@@ -13,8 +13,10 @@ const { NamesService } = require('../services/namesService');
 const { AuthService } = require('../services/authService');
 const { NamesController } = require('../controllers/namesController');
 const { AuthController } = require('../controllers/authController');
+const { UsersController } = require('../controllers/usersController');
 const { createNamesRoutes } = require('../routes/namesRoutes');
 const { createAuthRoutes } = require('../routes/authRoutes');
+const { createUsersRoutes } = require('../routes/usersRoutes');
 
 function buildContainer(overrides = {}) {
   const config = { ...loadEnv(), ...(overrides.config || {}) };
@@ -26,6 +28,7 @@ function buildContainer(overrides = {}) {
   const namesService = overrides.namesService || new NamesService({ namesRepository });
   const authService = overrides.authService || new AuthService({
     usersRepository,
+    namesRepository,
     sessionTtlMinutes: config.sessionTtlMinutes,
     sessionRolling: config.sessionRolling,
     bcryptRounds: config.bcryptRounds
@@ -33,6 +36,7 @@ function buildContainer(overrides = {}) {
 
   const namesController = overrides.namesController || new NamesController({ namesService, config });
   const authController = overrides.authController || new AuthController({ authService, logger });
+  const usersController = overrides.usersController || new UsersController({ authService, logger });
 
   return {
     config,
@@ -42,13 +46,15 @@ function buildContainer(overrides = {}) {
     namesService,
     authService,
     namesController,
-    authController
+    authController,
+    usersController
   };
 }
 
 function createApp(overrides = {}) {
   const container = buildContainer(overrides);
   const app = express();
+  const isProductionEnv = container.config.nodeEnv === 'production';
 
   app.use(securityHeadersMiddleware(container.config));
   app.use(cors(createCorsOptions(container.config)));
@@ -78,6 +84,7 @@ function createApp(overrides = {}) {
     },
     maxBuckets: 10000
   });
+  const effectiveAuthAccountRateLimit = isProductionEnv ? authAccountRateLimit : null;
   const authLogoutRateLimit = createRateLimiter({
     windowMs: container.config.authRateLimitWindowMs,
     maxRequests: container.config.authLogoutRateLimitMax || Math.max(container.config.authRateLimitMax, 60)
@@ -88,9 +95,14 @@ function createApp(overrides = {}) {
   app.use('/api', createAuthRoutes({
     authController: container.authController,
     authRateLimit,
-    authAccountRateLimit,
+    authAccountRateLimit: effectiveAuthAccountRateLimit,
     authLogoutRateLimit,
     authMiddleware
+  }));
+  app.use('/api', createUsersRoutes({
+    usersController: container.usersController,
+    authMiddleware,
+    authRateLimit
   }));
 
   app.use(notFoundHandler);

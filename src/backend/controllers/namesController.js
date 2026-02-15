@@ -8,12 +8,12 @@ class NamesController {
 
   getNames = async (_req, res) => {
     const names = await this.namesService.getNames();
-    res.json(names);
+    res.json({ ok: true, data: names });
   };
 
   getConfig = async (_req, res) => {
     const config = await this.namesService.getConfig();
-    res.json(config);
+    res.json({ ok: true, data: config });
   };
 
   getDonationLink = async (_req, res) => {
@@ -21,11 +21,11 @@ class NamesController {
       throw new AppError(404, 'DONATION_LINK_NOT_CONFIGURED', 'PayPal-Spendenlink ist nicht konfiguriert');
     }
 
-    res.json({ url: this.config.paypalDonationUrl });
+    res.json({ ok: true, data: { url: this.config.paypalDonationUrl } });
   };
 
   assertAdmin(req) {
-    if (!req.auth?.roles?.includes('admin')) {
+    if (req.auth?.role !== 'ADMIN') {
       throw new AppError(403, 'FORBIDDEN', 'Nicht erlaubt');
     }
   }
@@ -33,29 +33,27 @@ class NamesController {
   updateConfig = async (req, res) => {
     this.assertAdmin(req);
     await this.namesService.updateConfig(req.body.valuePerClick);
-    res.json({ message: 'Wert gespeichert' });
+    res.json({ ok: true, data: { message: 'Wert gespeichert' } });
   };
 
   addName = async (req, res) => {
     await this.namesService.addName(req.body.name);
-    res.status(201).json({ message: 'Hinzugefügt' });
+    res.status(201).json({ ok: true, data: { message: 'Hinzugefuegt' } });
   };
 
   incrementName = async (req, res) => {
-    await this.namesService.incrementName(req.params.name);
-    res.json({ message: 'Zähler erhöht' });
+    await this.namesService.incrementName(req.params.name, req.auth.username);
+    res.json({ ok: true, data: { message: 'Zaehler erhoeht' } });
   };
 
   resetNames = async (req, res) => {
-    this.assertAdmin(req);
-    await this.namesService.resetNames();
-    res.json({ message: 'Zurückgesetzt' });
+    await this.namesService.resetOwnName(req.auth.username);
+    res.json({ ok: true, data: { message: 'Zurueckgesetzt' } });
   };
 
   deleteName = async (req, res) => {
-    this.assertAdmin(req);
-    await this.namesService.deleteName(req.params.name);
-    res.json({ message: 'Name gelöscht' });
+    await this.namesService.deleteName(req.params.name, req.auth.username);
+    res.json({ ok: true, data: { message: 'Name geloescht' } });
   };
 }
 

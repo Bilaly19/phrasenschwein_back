@@ -108,3 +108,9 @@ npm start
   Without a valid header it returns `401` with `error.code = UNAUTHORIZED`.
 - `POST /api/logout` also requires `Authorization: Bearer <token>`.
 - Role storage is per user in `users.json` via `roles` array. For admin users use `roles: ['admin', 'user']`.
+- `POST /api/register` creates accounts with default role `['user']`.
+- `GET /api/users` lists users (authenticated).
+- `POST /api/users` creates a user (authenticated):
+  admins can set `roles`, normal users always create with `['user']`.
+  Normal users can create only one additional user (`USER_CREATE_LIMIT_REACHED`).
+- `PATCH /api/users/:username/roles` updates roles (admin only).

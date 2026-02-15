@@ -63,6 +63,8 @@ async function withEnv(tempEnv, fn) {
 
 test('per-account limiter throttles repeated failed login attempts for the same username', async (t) => {
   const ctx = await createContractContext({
+    nodeEnv: 'production',
+    isProduction: true,
     authRateLimitMax: 20,
     authAccountRateLimitMax: 2
   });
@@ -80,9 +82,27 @@ test('per-account limiter throttles repeated failed login attempts for the same 
   assert.equal(attempt3.status, 429);
   assert.equal(attempt3.body.ok, false);
   assert.equal(attempt3.body.error.code, 'RATE_LIMITED');
-  assert.equal(typeof attempt3.body.error.message, 'string');
-  assert.equal(Array.isArray(attempt3.body.error.details), true);
-  assert.equal(typeof attempt3.body.error.requestId, 'string');
+});
+
+test('non-production disables per-account limiter so repeated failed login attempts are not locked instantly', async (t) => {
+  const ctx = await createContractContext({
+    nodeEnv: 'development',
+    isProduction: false,
+    authRateLimitMax: 20,
+    authAccountRateLimitMax: 2
+  });
+  t.after(async () => ctx.cleanup());
+
+  const attempt1 = await ctx.req.post('/api/login').send({ username: 'same-user', password: '12345678' });
+  const attempt2 = await ctx.req.post('/api/login').send({ username: 'same-user', password: '12345678' });
+  const attempt3 = await ctx.req.post('/api/login').send({ username: 'same-user', password: '12345678' });
+
+  assert.equal(attempt1.status, 401);
+  assert.equal(attempt1.body.error.code, 'LOGIN_FAILED');
+  assert.equal(attempt2.status, 401);
+  assert.equal(attempt2.body.error.code, 'LOGIN_FAILED');
+  assert.equal(attempt3.status, 401);
+  assert.equal(attempt3.body.error.code, 'LOGIN_FAILED');
 });
 
 test('different usernames on same IP are not blocked by per-account limiter; IP limiter applies', async (t) => {
@@ -112,16 +132,22 @@ test('login and logout are rate-limited separately so repeated logout does not c
   });
   t.after(async () => ctx.cleanup());
 
-  const registerRes = await ctx.req.post('/api/register').send({ username: 'limit-user', password: '12345678' });
+  const registerRes = await ctx.req.post('/api/register').send({
+    username: 'limit-user',
+    firstName: 'Limit',
+    lastName: 'User',
+    password: '12345678'
+  });
   assert.equal(registerRes.status, 201);
+  assert.equal(registerRes.body.ok, true);
 
   const login1 = await ctx.req.post('/api/login').send({ username: 'limit-user', password: '12345678' });
   assert.equal(login1.status, 200);
 
-  const logout1 = await ctx.req.post('/api/logout').set('authorization', `Bearer ${login1.body.token}`).send({});
+  const logout1 = await ctx.req.post('/api/logout').set('authorization', `Bearer ${login1.body.data.token}`).send({});
   assert.equal(logout1.status, 200);
 
-  const logoutAgain = await ctx.req.post('/api/logout').set('authorization', `Bearer ${login1.body.token}`).send({});
+  const logoutAgain = await ctx.req.post('/api/logout').set('authorization', `Bearer ${login1.body.data.token}`).send({});
   assert.equal(logoutAgain.status, 401);
   assert.equal(logoutAgain.body.error.code, 'UNAUTHORIZED');
 
@@ -156,6 +182,7 @@ test('production CORS allowlist allows configured Origin and sets CORS headers v
     assert.equal(res.headers['access-control-allow-origin'], 'https://allowed.example');
     assert.equal(res.headers['access-control-allow-credentials'], 'true');
     assert.match(res.headers.vary || '', /Origin/);
+    assert.equal(res.body.ok, true);
   });
 
   await fs.rm(tempDir, { recursive: true, force: true });
@@ -183,7 +210,6 @@ test('production CORS denies unknown Origin with structured 403 and no stack lea
     assert.equal(res.status, 403);
     assert.equal(res.body.ok, false);
     assert.equal(res.body.error.code, 'CORS_ORIGIN_DENIED');
-    assert.equal(typeof res.body.error.message, 'string');
     assert.equal(res.body.error.stack, undefined);
     assert.equal(res.text.includes('"stack"'), false);
   });

@@ -20,6 +20,22 @@ function createUsersRepositoryMock() {
     async findUser(username) {
       return users[username] || null;
     },
+    async countUsersCreatedBy(createdBy) {
+      return Object.values(users).filter((user) => user?.createdBy === createdBy).length;
+    },
+    async updateUser(username, updater) {
+      if (!users[username]) return false;
+      users[username] = updater(users[username]);
+      return true;
+    },
+    async listUsers() {
+      return Object.entries(users).map(([username, user]) => ({
+        username,
+        createdAt: user.createdAt,
+        createdBy: user.createdBy || null,
+        roles: user.roles
+      }));
+    },
     async createSession(tokenHash, sessionData) {
       sessions[tokenHash] = sessionData;
     },
@@ -103,4 +119,26 @@ test('register admin keeps admin and user roles', async () => {
 
   await authService.register('admin-user', '12345678', { roles: ['admin'] });
   assert.deepEqual(repo.users['admin-user'].roles, ['admin', 'user']);
+});
+
+test('createUserByActor allows admin to assign roles', async () => {
+  const repo = createUsersRepositoryMock();
+  const authService = new AuthService({ usersRepository: repo, sessionTtlMinutes: 60, sessionRolling: true, bcryptRounds: 4 });
+
+  await authService.createUserByActor({ username: 'root', roles: ['admin', 'user'] }, 'editor1', '12345678', { roles: ['editor'] });
+  assert.deepEqual(repo.users.editor1.roles, ['editor', 'user']);
+  assert.equal(repo.users.editor1.createdBy, 'root');
+});
+
+test('createUserByActor limits normal user to one created account', async () => {
+  const repo = createUsersRepositoryMock();
+  const authService = new AuthService({ usersRepository: repo, sessionTtlMinutes: 60, sessionRolling: true, bcryptRounds: 4 });
+
+  await authService.createUserByActor({ username: 'user1', roles: ['user'] }, 'child1', '12345678', { roles: ['admin'] });
+  assert.deepEqual(repo.users.child1.roles, ['user']);
+
+  await assert.rejects(
+    () => authService.createUserByActor({ username: 'user1', roles: ['user'] }, 'child2', '12345678'),
+    /Du kannst nur einen weiteren User anlegen/
+  );
 });

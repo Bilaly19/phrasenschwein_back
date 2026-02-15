@@ -21,9 +21,14 @@ async function seedDevUserIfEnabled({ config, authService, usersRepository, logg
     return;
   }
 
-  const roles = config.devSeedIsAdmin ? ['admin', 'user'] : ['user'];
-  await authService.register(username, password, { roles });
-  logger.info({ username, roles }, 'Development seed user created');
+  const role = config.devSeedIsAdmin ? 'ADMIN' : 'USER';
+  await authService.register({
+    username,
+    firstName: username,
+    lastName: 'Dev',
+    password
+  }, { role });
+  logger.info({ username, role }, 'Development seed user created');
 }
 
 module.exports = {

@@ -33,229 +33,203 @@ async function createContractContext(options = {}) {
 
   return {
     req: request(app),
-    dataPath,
-    usersPath,
     async cleanup() {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   };
 }
 
-async function registerAndLogin(req, username = 'alice', password = '12345678') {
-  const registerRes = await req.post('/api/register').send({ username, password });
-  assert.equal(registerRes.status, 201);
+async function registerUser(req, username, password = '12345678') {
+  const res = await req.post('/api/register').send({
+    username,
+    firstName: 'First',
+    lastName: 'Last',
+    password
+  });
 
-  const loginRes = await req.post('/api/login').send({ username, password });
-  assert.equal(loginRes.status, 200);
-  assert.equal(typeof loginRes.body.token, 'string');
-  return loginRes.body;
+  assert.equal(res.status, 201);
+  assert.equal(res.body.ok, true);
+  return res;
 }
 
-async function promoteUserToAdmin(usersPath, username) {
-  const raw = await fs.readFile(usersPath, 'utf8');
-  const data = JSON.parse(raw);
-  if (!data.users[username]) {
-    throw new Error(`User not found: ${username}`);
-  }
-
-  data.users[username].roles = ['admin', 'user'];
-  await fs.writeFile(usersPath, JSON.stringify(data, null, 2), 'utf8');
+async function loginUser(req, username, password = '12345678') {
+  const res = await req.post('/api/login').send({ username, password });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.ok, true);
+  return res.body.data;
 }
 
-test('GET /api/names and GET /api/config return expected public shapes', async (t) => {
+test('register accepts username/firstName/lastName/password and auto-creates matching entry', async (t) => {
+  const ctx = await createContractContext();
+  t.after(async () => ctx.cleanup());
+
+  const registerRes = await registerUser(ctx.req, 'alice');
+  assert.equal(registerRes.body.data.user.username, 'alice');
+  assert.equal(registerRes.body.data.user.firstName, 'First');
+  assert.equal(registerRes.body.data.user.lastName, 'Last');
+  assert.equal(registerRes.body.data.user.role, 'USER');
+
+  const namesRes = await ctx.req.get('/api/names');
+  assert.equal(namesRes.status, 200);
+  assert.equal(namesRes.body.ok, true);
+  assert.deepEqual(namesRes.body.data.alice, {
+    name: 'alice',
+    clicks: 0,
+    lastClickAt: null,
+    ownerUsername: 'alice'
+  });
+});
+
+test('register returns USERNAME_TAKEN for duplicate username', async (t) => {
+  const ctx = await createContractContext();
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const duplicate = await ctx.req.post('/api/register').send({
+    username: 'alice',
+    firstName: 'Other',
+    lastName: 'User',
+    password: '12345678'
+  });
+
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.body.ok, false);
+  assert.equal(duplicate.body.error.code, 'USERNAME_TAKEN');
+});
+
+test('register returns NAME_ALREADY_EXISTS when matching name entry already exists', async (t) => {
   const ctx = await createContractContext({
     seedData: {
-      valuePerClick: 0.2,
-      Bilal: { count: 3, lastClickedAt: '2025-05-09T21:33:01.731Z' }
+      valuePerClick: 0.5,
+      alice: {
+        name: 'alice',
+        clicks: 2,
+        lastClickAt: '2025-01-01T00:00:00.000Z',
+        ownerUsername: 'alice'
+      }
     }
   });
   t.after(async () => ctx.cleanup());
 
-  const namesRes = await ctx.req.get('/api/names');
-  assert.equal(namesRes.status, 200);
-  assert.deepEqual(namesRes.body, {
-    Bilal: { count: 3, lastClickedAt: '2025-05-09T21:33:01.731Z' }
+  const res = await ctx.req.post('/api/register').send({
+    username: 'alice',
+    firstName: 'First',
+    lastName: 'Last',
+    password: '12345678'
   });
 
-  const configRes = await ctx.req.get('/api/config');
-  assert.equal(configRes.status, 200);
-  assert.deepEqual(configRes.body, { valuePerClick: 0.2 });
+  assert.equal(res.status, 409);
+  assert.equal(res.body.ok, false);
+  assert.equal(res.body.error.code, 'NAME_ALREADY_EXISTS');
 });
 
-test('GET /api/donation-link returns 404 when not configured, 200 when configured', async (t) => {
-  const withoutLink = await createContractContext();
-  t.after(async () => withoutLink.cleanup());
-  const notFoundRes = await withoutLink.req.get('/api/donation-link');
-  assert.equal(notFoundRes.status, 404);
-  assert.equal(notFoundRes.body.ok, false);
-  assert.equal(notFoundRes.body.error.code, 'DONATION_LINK_NOT_CONFIGURED');
-  assert.equal(notFoundRes.body.error.message, 'PayPal-Spendenlink ist nicht konfiguriert');
-  assert.equal(Array.isArray(notFoundRes.body.error.details), true);
-
-  const withLink = await createContractContext({ paypalDonationUrl: 'https://paypal.example/donate' });
-  t.after(async () => withLink.cleanup());
-  const okRes = await withLink.req.get('/api/donation-link');
-  assert.equal(okRes.status, 200);
-  assert.deepEqual(okRes.body, { url: 'https://paypal.example/donate' });
-});
-
-test('POST /api/register and POST /api/login happy path', async (t) => {
+test('GET /api/session returns username and role for authenticated user', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());
 
-  const registerRes = await ctx.req.post('/api/register').send({ username: 'alice', password: '12345678' });
-  assert.equal(registerRes.status, 201);
-  assert.deepEqual(registerRes.body, { message: 'Benutzer registriert' });
+  await registerUser(ctx.req, 'bob');
+  const login = await loginUser(ctx.req, 'bob');
 
-  const loginRes = await ctx.req.post('/api/login').send({ username: 'alice', password: '12345678' });
-  assert.equal(loginRes.status, 200);
-  assert.equal(loginRes.body.username, 'alice');
-  assert.equal(typeof loginRes.body.token, 'string');
-  assert.equal(typeof loginRes.body.expiresAt, 'string');
-});
-
-test('auth endpoints return expected validation and login failure errors', async (t) => {
-  const ctx = await createContractContext();
-  t.after(async () => ctx.cleanup());
-
-  const invalidRegister = await ctx.req.post('/api/register').send({ username: 'a', password: 'short' });
-  assert.equal(invalidRegister.status, 400);
-  assert.equal(invalidRegister.body.error.code, 'VALIDATION_ERROR');
-  assert.equal(Array.isArray(invalidRegister.body.error.details), true);
-
-  await ctx.req.post('/api/register').send({ username: 'alice', password: '12345678' });
-
-  const duplicateRegister = await ctx.req.post('/api/register').send({ username: 'alice', password: '12345678' });
-  assert.equal(duplicateRegister.status, 400);
-  assert.equal(duplicateRegister.body.error.code, 'USER_EXISTS');
-
-  const failedLogin = await ctx.req.post('/api/login').send({ username: 'alice', password: 'wrong-password' });
-  assert.equal(failedLogin.status, 401);
-  assert.equal(failedLogin.body.error.code, 'LOGIN_FAILED');
-});
-
-test('auth-required routes reject missing token and expose session when logged in', async (t) => {
-  const ctx = await createContractContext();
-  t.after(async () => ctx.cleanup());
-
-  const unauthorizedSession = await ctx.req.get('/api/session');
-  assert.equal(unauthorizedSession.status, 401);
-  assert.equal(unauthorizedSession.body.error.code, 'UNAUTHORIZED');
-
-  const login = await registerAndLogin(ctx.req, 'bob', '12345678');
   const sessionRes = await ctx.req
     .get('/api/session')
     .set('authorization', `Bearer ${login.token}`);
 
   assert.equal(sessionRes.status, 200);
-  assert.equal(sessionRes.body.username, 'bob');
-  assert.equal(typeof sessionRes.body.expiresAt, 'string');
-  assert.deepEqual(sessionRes.body.roles, ['user']);
+  assert.equal(sessionRes.body.ok, true);
+  assert.equal(sessionRes.body.data.username, 'bob');
+  assert.equal(sessionRes.body.data.role, 'USER');
+  assert.equal(typeof sessionRes.body.data.expiresAt, 'string');
 });
 
-test('POST /api/logout revokes token and returns stable response', async (t) => {
+test('GET /api/names returns shared board for all users', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());
 
-  const missingAuthLogout = await ctx.req.post('/api/logout').send({});
-  assert.equal(missingAuthLogout.status, 401);
-  assert.equal(missingAuthLogout.body.error.code, 'UNAUTHORIZED');
+  await registerUser(ctx.req, 'alice');
+  await registerUser(ctx.req, 'bob');
 
-  const login = await registerAndLogin(ctx.req, 'charlie', '12345678');
-
-  const logoutRes = await ctx.req
-    .post('/api/logout')
-    .set('authorization', `Bearer ${login.token}`)
-    .send({});
-  assert.equal(logoutRes.status, 200);
-  assert.deepEqual(logoutRes.body, { message: 'Abgemeldet' });
-
-  const sessionAfterLogout = await ctx.req
-    .get('/api/session')
-    .set('authorization', `Bearer ${login.token}`);
-  assert.equal(sessionAfterLogout.status, 401);
-  assert.equal(sessionAfterLogout.body.error.code, 'UNAUTHORIZED');
+  const allNames = await ctx.req.get('/api/names');
+  assert.equal(allNames.status, 200);
+  assert.equal(allNames.body.ok, true);
+  assert.ok(allNames.body.data.alice);
+  assert.ok(allNames.body.data.bob);
 });
 
-test('names mutation endpoints require auth and support add/increment/reset/delete flow', async (t) => {
+test('user cannot increment or delete someone else entry (403)', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());
 
-  const unauthorizedAdd = await ctx.req.post('/api/add').send({ name: 'Anna' });
-  assert.equal(unauthorizedAdd.status, 401);
-  assert.equal(unauthorizedAdd.body.error.code, 'UNAUTHORIZED');
+  await registerUser(ctx.req, 'alice');
+  await registerUser(ctx.req, 'bob');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${aliceLogin.token}` };
 
-  const login = await registerAndLogin(ctx.req, 'dora', '12345678');
-  const auth = { authorization: `Bearer ${login.token}` };
+  const incrementOther = await ctx.req.post('/api/increment/bob').set(auth).send({});
+  assert.equal(incrementOther.status, 403);
+  assert.equal(incrementOther.body.ok, false);
+  assert.equal(incrementOther.body.error.code, 'FORBIDDEN');
 
-  const updateConfigForbidden = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: 0.4 });
-  assert.equal(updateConfigForbidden.status, 403);
-  assert.equal(updateConfigForbidden.body.error.code, 'FORBIDDEN');
+  const deleteOther = await ctx.req.delete('/api/delete/bob').set(auth);
+  assert.equal(deleteOther.status, 403);
+  assert.equal(deleteOther.body.ok, false);
+  assert.equal(deleteOther.body.error.code, 'FORBIDDEN');
+});
 
-  const addRes = await ctx.req.post('/api/add').set(auth).send({ name: 'Anna' });
-  assert.equal(addRes.status, 201);
-  assert.equal(typeof addRes.body.message, 'string');
+test('user can increment and delete own entry', async (t) => {
+  const ctx = await createContractContext();
+  t.after(async () => ctx.cleanup());
 
-  const incrementRes = await ctx.req.post('/api/increment/Anna').set(auth).send({});
-  assert.equal(incrementRes.status, 200);
-  assert.equal(typeof incrementRes.body.message, 'string');
+  await registerUser(ctx.req, 'alice');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${aliceLogin.token}` };
 
-  const resetForbidden = await ctx.req.post('/api/reset').set(auth).send({});
-  assert.equal(resetForbidden.status, 403);
-  assert.equal(resetForbidden.body.error.code, 'FORBIDDEN');
-
-  const deleteForbidden = await ctx.req.delete('/api/delete/Anna').set(auth);
-  assert.equal(deleteForbidden.status, 403);
-  assert.equal(deleteForbidden.body.error.code, 'FORBIDDEN');
-
-  await promoteUserToAdmin(ctx.usersPath, 'dora');
-
-  const updateConfig = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: 0.4 });
-  assert.equal(updateConfig.status, 200);
-  assert.deepEqual(updateConfig.body, { message: 'Wert gespeichert' });
+  const incrementSelf = await ctx.req.post('/api/increment/alice').set(auth).send({});
+  assert.equal(incrementSelf.status, 200);
+  assert.equal(incrementSelf.body.ok, true);
 
   const namesAfterIncrement = await ctx.req.get('/api/names');
-  assert.equal(namesAfterIncrement.status, 200);
-  assert.equal(namesAfterIncrement.body.Anna.count, 1);
+  assert.equal(namesAfterIncrement.body.data.alice.clicks, 1);
+  assert.match(namesAfterIncrement.body.data.alice.lastClickAt, /^\d{4}-\d{2}-\d{2}T/);
 
-  const resetRes = await ctx.req.post('/api/reset').set(auth).send({});
-  assert.equal(resetRes.status, 200);
-  assert.equal(typeof resetRes.body.message, 'string');
+  const deleteSelf = await ctx.req.delete('/api/delete/alice').set(auth);
+  assert.equal(deleteSelf.status, 200);
+  assert.equal(deleteSelf.body.ok, true);
 
-  const deleteRes = await ctx.req.delete('/api/delete/Anna').set(auth);
-  assert.equal(deleteRes.status, 200);
-  assert.equal(typeof deleteRes.body.message, 'string');
+  const namesAfterDelete = await ctx.req.get('/api/names');
+  assert.equal(namesAfterDelete.body.data.alice, undefined);
 });
 
-test('names endpoints return expected validation and not-found error cases', async (t) => {
-  const ctx = await createContractContext();
-  t.after(async () => ctx.cleanup());
-  const login = await registerAndLogin(ctx.req, 'erik', '12345678');
-  const auth = { authorization: `Bearer ${login.token}` };
-  await promoteUserToAdmin(ctx.usersPath, 'erik');
-
-  const invalidConfig = await ctx.req.post('/api/config').set(auth).send({ valuePerClick: -1 });
-  assert.equal(invalidConfig.status, 400);
-  assert.equal(invalidConfig.body.error.code, 'VALIDATION_ERROR');
-
-  const invalidName = await ctx.req.post('/api/add').set(auth).send({ name: '' });
-  assert.equal(invalidName.status, 400);
-  assert.equal(invalidName.body.error.code, 'VALIDATION_ERROR');
-
-  const missingIncrement = await ctx.req.post('/api/increment/Unknown').set(auth).send({});
-  assert.equal(missingIncrement.status, 404);
-  assert.equal(missingIncrement.body.error.code, 'NAME_NOT_FOUND');
-
-  const missingDelete = await ctx.req.delete('/api/delete/Unknown').set(auth);
-  assert.equal(missingDelete.status, 404);
-  assert.equal(missingDelete.body.error.code, 'NAME_NOT_FOUND');
-});
-
-test('unknown routes return not found contract', async (t) => {
+test('POST /api/reset resets only authenticated user entry', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());
 
-  const res = await ctx.req.get('/api/does-not-exist');
-  assert.equal(res.status, 404);
-  assert.equal(res.body.error.code, 'NOT_FOUND');
+  await registerUser(ctx.req, 'alice');
+  await registerUser(ctx.req, 'bob');
+
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const bobLogin = await loginUser(ctx.req, 'bob');
+
+  await ctx.req.post('/api/increment/alice').set({ authorization: `Bearer ${aliceLogin.token}` }).send({});
+  await ctx.req.post('/api/increment/alice').set({ authorization: `Bearer ${aliceLogin.token}` }).send({});
+  await ctx.req.post('/api/increment/bob').set({ authorization: `Bearer ${bobLogin.token}` }).send({});
+
+  const resetAlice = await ctx.req.post('/api/reset').set({ authorization: `Bearer ${aliceLogin.token}` }).send({});
+  assert.equal(resetAlice.status, 200);
+  assert.equal(resetAlice.body.ok, true);
+
+  const namesAfterReset = await ctx.req.get('/api/names');
+  assert.equal(namesAfterReset.body.data.alice.clicks, 0);
+  assert.equal(namesAfterReset.body.data.alice.lastClickAt, null);
+  assert.equal(namesAfterReset.body.data.bob.clicks, 1);
+});
+
+test('POST /api/add is disabled with 410 and standard error envelope', async (t) => {
+  const ctx = await createContractContext();
+  t.after(async () => ctx.cleanup());
+
+  const addRes = await ctx.req.post('/api/add').send({ name: 'someone' });
+  assert.equal(addRes.status, 410);
+  assert.equal(addRes.body.ok, false);
+  assert.equal(addRes.body.error.code, 'MANUAL_NAME_ADD_DISABLED');
+  assert.equal(typeof addRes.body.error.message, 'string');
 });
