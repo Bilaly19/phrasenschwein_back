@@ -78,6 +78,10 @@ function createApp(overrides = {}) {
     },
     maxBuckets: 10000
   });
+  const authLogoutRateLimit = createRateLimiter({
+    windowMs: container.config.authRateLimitWindowMs,
+    maxRequests: container.config.authLogoutRateLimitMax || Math.max(container.config.authRateLimitMax, 60)
+  });
   const authMiddleware = createAuthMiddleware({ authService: container.authService });
 
   app.use('/api', createNamesRoutes({ namesController: container.namesController, authMiddleware }));
@@ -85,6 +89,7 @@ function createApp(overrides = {}) {
     authController: container.authController,
     authRateLimit,
     authAccountRateLimit,
+    authLogoutRateLimit,
     authMiddleware
   }));
 

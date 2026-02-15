@@ -23,7 +23,8 @@ async function createContractContext(options = {}) {
       corsOrigins: options.corsOrigins || ['http://localhost:5173'],
       authRateLimitWindowMs: options.authRateLimitWindowMs || 60_000,
       authRateLimitMax: options.authRateLimitMax || 1000,
-      authAccountRateLimitMax: options.authAccountRateLimitMax || options.authRateLimitMax || 1000
+      authAccountRateLimitMax: options.authAccountRateLimitMax || options.authRateLimitMax || 1000,
+      authLogoutRateLimitMax: options.authLogoutRateLimitMax || options.authRateLimitMax || 1000
     }
   });
 
@@ -101,6 +102,35 @@ test('different usernames on same IP are not blocked by per-account limiter; IP 
   const blocked = await ctx.req.post('/api/login').send({ username: 'user06', password: '12345678' });
   assert.equal(blocked.status, 429);
   assert.equal(blocked.body.error.code, 'RATE_LIMITED');
+});
+
+test('login and logout are rate-limited separately so repeated logout does not consume login budget', async (t) => {
+  const ctx = await createContractContext({
+    authRateLimitMax: 3,
+    authAccountRateLimitMax: 100,
+    authLogoutRateLimitMax: 10
+  });
+  t.after(async () => ctx.cleanup());
+
+  const registerRes = await ctx.req.post('/api/register').send({ username: 'limit-user', password: '12345678' });
+  assert.equal(registerRes.status, 201);
+
+  const login1 = await ctx.req.post('/api/login').send({ username: 'limit-user', password: '12345678' });
+  assert.equal(login1.status, 200);
+
+  const logout1 = await ctx.req.post('/api/logout').set('authorization', `Bearer ${login1.body.token}`).send({});
+  assert.equal(logout1.status, 200);
+
+  const logoutAgain = await ctx.req.post('/api/logout').set('authorization', `Bearer ${login1.body.token}`).send({});
+  assert.equal(logoutAgain.status, 401);
+  assert.equal(logoutAgain.body.error.code, 'UNAUTHORIZED');
+
+  const login2 = await ctx.req.post('/api/login').send({ username: 'limit-user', password: '12345678' });
+  assert.equal(login2.status, 200);
+
+  const login3Blocked = await ctx.req.post('/api/login').send({ username: 'limit-user', password: '12345678' });
+  assert.equal(login3Blocked.status, 429);
+  assert.equal(login3Blocked.body.error.code, 'RATE_LIMITED');
 });
 
 test('production CORS allowlist allows configured Origin and sets CORS headers via CORS_ALLOWED_ORIGINS', async () => {

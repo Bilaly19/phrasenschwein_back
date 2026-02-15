@@ -25,7 +25,9 @@ async function createContractContext(options = {}) {
       usersPath,
       paypalDonationUrl: options.paypalDonationUrl || null,
       corsOrigins: ['http://localhost:5173'],
-      authRateLimitMax: 1000
+      authRateLimitMax: 1000,
+      authAccountRateLimitMax: 1000,
+      authLogoutRateLimitMax: 1000
     }
   });
 
@@ -142,6 +144,10 @@ test('auth-required routes reject missing token and expose session when logged i
 test('POST /api/logout revokes token and returns stable response', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());
+
+  const missingAuthLogout = await ctx.req.post('/api/logout').send({});
+  assert.equal(missingAuthLogout.status, 401);
+  assert.equal(missingAuthLogout.body.error.code, 'UNAUTHORIZED');
 
   const login = await registerAndLogin(ctx.req, 'charlie', '12345678');
 

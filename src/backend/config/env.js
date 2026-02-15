@@ -54,12 +54,17 @@ function parseResolvedPath(rootDir, rawValue, fallbackRelativePath) {
 
 function loadEnv() {
   const rootDir = process.cwd();
+  const nodeEnv = (process.env.NODE_ENV || 'development').trim();
+  const isProduction = nodeEnv === 'production';
+  const configuredCorsOrigins = process.env.CORS_ALLOWED_ORIGINS ?? process.env.CORS_ORIGINS;
 
   return {
-    nodeEnv: (process.env.NODE_ENV || 'development').trim(),
-    isProduction: (process.env.NODE_ENV || '').trim() === 'production',
+    nodeEnv,
+    isProduction,
     port: parsePort(process.env.PORT, 3000),
-    corsOrigins: parseCorsOrigins(process.env.CORS_ALLOWED_ORIGINS ?? process.env.CORS_ORIGINS),
+    corsOrigins: isProduction && (!configuredCorsOrigins || !configuredCorsOrigins.trim())
+      ? []
+      : parseCorsOrigins(configuredCorsOrigins),
     sessionTtlMinutes: parsePositiveNumber(process.env.SESSION_TTL_MINUTES, 60 * 24),
     sessionRolling: parseBoolean(process.env.SESSION_ROLLING, true),
     bcryptRounds: parsePositiveNumber(process.env.BCRYPT_ROUNDS, 10),
@@ -71,6 +76,10 @@ function loadEnv() {
     authAccountRateLimitMax: parsePositiveNumber(
       process.env.AUTH_ACCOUNT_RATE_LIMIT_MAX,
       parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20)
+    ),
+    authLogoutRateLimitMax: parsePositiveNumber(
+      process.env.AUTH_LOGOUT_RATE_LIMIT_MAX,
+      Math.max(parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20), 60)
     ),
     devSeedUserEnabled: parseEnabledByOne(process.env.DEV_SEED_USER),
     devSeedUsername: process.env.DEV_SEED_USERNAME?.trim() || '',

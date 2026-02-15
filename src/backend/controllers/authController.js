@@ -1,3 +1,4 @@
+const { AppError } = require('../utils/http');
 const { extractBearerToken } = require('../middlewares/authSession');
 
 class AuthController {
@@ -23,7 +24,11 @@ class AuthController {
   };
 
   logout = async (req, res) => {
-    const token = extractBearerToken(req.headers.authorization);
+    const token = req.auth?.token || extractBearerToken(req.headers.authorization);
+    if (!token) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Nicht eingeloggt');
+    }
+
     await this.authService.logout(token);
     res.json({ message: 'Abgemeldet' });
   };

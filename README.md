@@ -68,7 +68,8 @@ npm run lint
 1. Set required environment variables:
 - `NODE_ENV=production`
 - `PORT` (for example `3000`)
-- `CORS_ALLOWED_ORIGINS` (comma-separated allowlist, no wildcards in production)
+- `CORS_ALLOWED_ORIGINS` (comma-separated allowlist, no wildcards in production), for example:
+  `CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com`
 2. Ensure local storage files exist before boot:
 - `data.json` must exist
 - `users.json` must exist
@@ -96,4 +97,11 @@ npm start
 - `AUTH_RATE_LIMIT_WINDOW_MS` (default: `900000`)
 - `AUTH_RATE_LIMIT_MAX` (default: `20`)
 - `AUTH_ACCOUNT_RATE_LIMIT_MAX` (default: `AUTH_RATE_LIMIT_MAX`)
+- `AUTH_LOGOUT_RATE_LIMIT_MAX` (default: `max(AUTH_RATE_LIMIT_MAX, 60)`)
 - `PAYPAL_DONATION_URL` (optional)
+
+## Auth endpoint notes
+
+- `GET /api/session` requires `Authorization: Bearer <token>`.
+  Without a valid header it returns `401` with `error.code = UNAUTHORIZED`.
+- `POST /api/logout` also requires `Authorization: Bearer <token>`.
