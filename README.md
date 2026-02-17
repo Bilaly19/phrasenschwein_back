@@ -130,4 +130,3 @@ npm start
 - `POST /api/pigs/:pigId/config` updates `valuePerClick` per pig (pig admin only).
 - `POST /api/pigs/:pigId/increment/:username` increments own entry (member only, ownership enforced).
 - `POST /api/pigs/:pigId/reset` resets own entry (member only).
-- `DELETE /api/pigs/:pigId/delete/:username` deletes own entry (member only, ownership enforced).

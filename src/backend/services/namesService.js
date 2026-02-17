@@ -42,15 +42,6 @@ class NamesService {
       throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
     }
   }
-
-  async deleteName(name, authUsername) {
-    this.assertOwnership(name, authUsername);
-
-    const found = await this.namesRepository.deleteName(name);
-    if (!found) {
-      throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
-    }
-  }
 }
 
 module.exports = {

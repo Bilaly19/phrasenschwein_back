@@ -206,17 +206,6 @@ class PigsService {
       throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
     }
   }
-
-  async deleteOwnByActor(actor, pigId, username) {
-    const normalizedUsername = normalizeUsername(actor?.username);
-    await this.assertPigMember(pigId, normalizedUsername);
-    this.assertOwnership(username, normalizedUsername);
-
-    const ok = await this.pigsRepository.deleteName(pigId, normalizedUsername);
-    if (!ok) {
-      throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
-    }
-  }
 }
 
 module.exports = {

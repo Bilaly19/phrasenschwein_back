@@ -34,13 +34,6 @@ function createPigsRoutes({ pigsController, authMiddleware }) {
     validateBody(emptyBodySchema),
     asyncHandler(pigsController.resetMine)
   );
-  router.delete(
-    '/pigs/:pigId/delete/:username',
-    authMiddleware,
-    validateParams(pigIdParamsSchema),
-    validateParams(usernameParamsSchema),
-    asyncHandler(pigsController.deleteName)
-  );
 
   return router;
 }

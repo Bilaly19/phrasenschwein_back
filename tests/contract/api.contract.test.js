@@ -37,10 +37,21 @@ async function createContractContext(options = {}) {
 
   return {
     req: request(app),
+    dataPath,
+    usersPath,
+    pigsPath,
     async cleanup() {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   };
+}
+
+async function removeNameEntry(ctx, username) {
+  const normalized = String(username || '').trim().toLowerCase();
+  const raw = await fs.readFile(ctx.dataPath, 'utf8');
+  const parsed = JSON.parse(raw);
+  delete parsed[normalized];
+  await fs.writeFile(ctx.dataPath, JSON.stringify(parsed, null, 2), 'utf8');
 }
 
 async function registerUser(req, username, password = '12345678') {
@@ -165,11 +176,9 @@ test('login recreates missing own name entry automatically', async (t) => {
 
   await registerUser(ctx.req, 'alice');
   const firstLogin = await loginUser(ctx.req, 'alice');
-  const auth = { authorization: `Bearer ${firstLogin.token}` };
+  assert.ok(firstLogin.token);
 
-  const deleteSelf = await ctx.req.delete('/api/delete/alice').set(auth);
-  assert.equal(deleteSelf.status, 200);
-  assert.equal(deleteSelf.body.ok, true);
+  await removeNameEntry(ctx, 'alice');
 
   const namesAfterDelete = await ctx.req.get('/api/names');
   assert.equal(namesAfterDelete.body.data.alice, undefined);
@@ -200,12 +209,12 @@ test('user cannot increment or delete someone else entry (403)', async (t) => {
   assert.equal(incrementOther.body.error.code, 'FORBIDDEN');
 
   const deleteOther = await ctx.req.delete('/api/delete/bob').set(auth);
-  assert.equal(deleteOther.status, 403);
+  assert.equal(deleteOther.status, 404);
   assert.equal(deleteOther.body.ok, false);
-  assert.equal(deleteOther.body.error.code, 'FORBIDDEN');
+  assert.equal(deleteOther.body.error.code, 'NOT_FOUND');
 });
 
-test('user can increment and delete own entry', async (t) => {
+test('user can increment own entry', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());
 
@@ -220,13 +229,6 @@ test('user can increment and delete own entry', async (t) => {
   const namesAfterIncrement = await ctx.req.get('/api/names');
   assert.equal(namesAfterIncrement.body.data.alice.clicks, 1);
   assert.match(namesAfterIncrement.body.data.alice.lastClickAt, /^\d{4}-\d{2}-\d{2}T/);
-
-  const deleteSelf = await ctx.req.delete('/api/delete/alice').set(auth);
-  assert.equal(deleteSelf.status, 200);
-  assert.equal(deleteSelf.body.ok, true);
-
-  const namesAfterDelete = await ctx.req.get('/api/names');
-  assert.equal(namesAfterDelete.body.data.alice, undefined);
 });
 
 test('POST /api/reset resets only authenticated user entry', async (t) => {

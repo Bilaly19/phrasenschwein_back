@@ -312,24 +312,6 @@ class JsonPigsRepository {
       return true;
     });
   }
-
-  async deleteName(pigId, username) {
-    const normalizedUsername = normalizeUsername(username);
-
-    return withFileLock(this.pigsPath, async () => {
-      const data = await this.readRaw();
-      const pig = normalizePig(data.pigs[pigId]);
-      if (!pig) return false;
-
-      pig.names = pig.names && typeof pig.names === 'object' ? pig.names : {};
-      if (!pig.names[normalizedUsername]) return false;
-
-      delete pig.names[normalizedUsername];
-      data.pigs[pigId] = pig;
-      await this.writeRaw(data);
-      return true;
-    });
-  }
 }
 
 module.exports = {

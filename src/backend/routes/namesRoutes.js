@@ -14,7 +14,6 @@ function createNamesRoutes({ namesController, authMiddleware }) {
   router.post('/add', asyncHandler(namesController.addName));
   router.post('/increment/:name', authMiddleware, validateParams(incrementParamsSchema), asyncHandler(namesController.incrementName));
   router.post('/reset', authMiddleware, validateBody(emptyBodySchema), asyncHandler(namesController.resetNames));
-  router.delete('/delete/:name', authMiddleware, validateParams(incrementParamsSchema), asyncHandler(namesController.deleteName));
 
   return router;
 }

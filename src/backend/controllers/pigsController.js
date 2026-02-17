@@ -52,12 +52,6 @@ class PigsController {
     await this.pigsService.resetOwnByActor(req.auth, pigId);
     res.json({ ok: true, data: { message: 'Zurueckgesetzt' } });
   };
-
-  deleteName = async (req, res) => {
-    const { pigId, username } = req.params;
-    await this.pigsService.deleteOwnByActor(req.auth, pigId, username);
-    res.json({ ok: true, data: { message: 'Name geloescht' } });
-  };
 }
 
 module.exports = {

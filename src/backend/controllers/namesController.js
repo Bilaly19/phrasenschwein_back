@@ -50,11 +50,6 @@ class NamesController {
     await this.namesService.resetOwnName(req.auth.username);
     res.json({ ok: true, data: { message: 'Zurueckgesetzt' } });
   };
-
-  deleteName = async (req, res) => {
-    await this.namesService.deleteName(req.params.name, req.auth.username);
-    res.json({ ok: true, data: { message: 'Name geloescht' } });
-  };
 }
 
 module.exports = {

@@ -143,17 +143,6 @@ class JsonNamesRepository {
       await this.writeRaw(data);
     });
   }
-
-  async deleteName(name) {
-    return withFileLock(this.dataPath, async () => {
-      const data = await this.readRaw();
-      if (!data[name]) return false;
-
-      delete data[name];
-      await this.writeRaw(data);
-      return true;
-    });
-  }
 }
 
 module.exports = {
