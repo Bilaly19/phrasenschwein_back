@@ -117,3 +117,17 @@ npm start
   admins can set `roles`, normal users always create with `['user']`.
   Normal users can create only one additional user (`USER_CREATE_LIMIT_REACHED`).
 - `PATCH /api/users/:username/roles` updates roles (admin only).
+
+## Phrasenschwein (Pigs) endpoints
+
+- `POST /api/pigs` creates a new pig (authenticated). The creator becomes pig admin.
+- `GET /api/pigs` lists pigs for the authenticated user (includes membership role).
+- `POST /api/pigs/:pigId/invites` creates a shareable invite token (pig admin only).
+  The frontend can use `https://<app>/invite/<token>` for register/login + auto-join.
+- `POST /api/invites/accept` accepts an invite token and joins the pig (authenticated).
+- `GET /api/pigs/:pigId/names` returns the per-pig board (member only).
+- `GET /api/pigs/:pigId/config` returns pig config (member only).
+- `POST /api/pigs/:pigId/config` updates `valuePerClick` per pig (pig admin only).
+- `POST /api/pigs/:pigId/increment/:username` increments own entry (member only, ownership enforced).
+- `POST /api/pigs/:pigId/reset` resets own entry (member only).
+- `DELETE /api/pigs/:pigId/delete/:username` deletes own entry (member only, ownership enforced).

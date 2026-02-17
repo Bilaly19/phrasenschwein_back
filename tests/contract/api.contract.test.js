@@ -10,12 +10,15 @@ async function createContractContext(options = {}) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'phrasenschwein-contract-'));
   const dataPath = path.join(tempDir, 'data.json');
   const usersPath = path.join(tempDir, 'users.json');
+  const pigsPath = path.join(tempDir, 'pigs.json');
 
   const seedData = options.seedData || { valuePerClick: 0.5 };
   const seedUsers = options.seedUsers || { users: {}, sessions: {} };
+  const seedPigs = options.seedPigs || { pigs: {} };
 
   await fs.writeFile(dataPath, JSON.stringify(seedData, null, 2), 'utf8');
   await fs.writeFile(usersPath, JSON.stringify(seedUsers, null, 2), 'utf8');
+  await fs.writeFile(pigsPath, JSON.stringify(seedPigs, null, 2), 'utf8');
 
   const { app } = createApp({
     config: {
@@ -23,6 +26,7 @@ async function createContractContext(options = {}) {
       isProduction: false,
       dataPath,
       usersPath,
+      pigsPath,
       paypalDonationUrl: options.paypalDonationUrl || null,
       corsOrigins: ['http://localhost:5173'],
       authRateLimitMax: 1000,
@@ -258,4 +262,73 @@ test('POST /api/add is disabled with 410 and standard error envelope', async (t)
   assert.equal(addRes.body.ok, false);
   assert.equal(addRes.body.error.code, 'MANUAL_NAME_ADD_DISABLED');
   assert.equal(typeof addRes.body.error.message, 'string');
+});
+
+test('pig creator is admin; invite joins member; valuePerClick is per pig', async (t) => {
+  const ctx = await createContractContext();
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const aliceAuth = { authorization: `Bearer ${aliceLogin.token}` };
+
+  const createPig = await ctx.req.post('/api/pigs').set(aliceAuth).send({ title: 'WG' });
+  assert.equal(createPig.status, 201);
+  assert.equal(createPig.body.ok, true);
+  assert.equal(createPig.body.data.pig.role, 'admin');
+  assert.equal(typeof createPig.body.data.pig.id, 'string');
+  const pigId = createPig.body.data.pig.id;
+
+  const listAlice = await ctx.req.get('/api/pigs').set(aliceAuth);
+  assert.equal(listAlice.status, 200);
+  assert.equal(listAlice.body.ok, true);
+  assert.ok(Array.isArray(listAlice.body.data.pigs));
+  assert.ok(listAlice.body.data.pigs.some((pig) => pig.id === pigId && pig.role === 'admin'));
+
+  const invite = await ctx.req.post(`/api/pigs/${pigId}/invites`).set(aliceAuth).send({ maxUses: 1, ttlHours: 24 });
+  assert.equal(invite.status, 201);
+  assert.equal(invite.body.ok, true);
+  assert.equal(typeof invite.body.data.token, 'string');
+
+  await registerUser(ctx.req, 'bob');
+  const bobLogin = await loginUser(ctx.req, 'bob');
+  const bobAuth = { authorization: `Bearer ${bobLogin.token}` };
+
+  const accept = await ctx.req.post('/api/invites/accept').set(bobAuth).send({ token: invite.body.data.token });
+  assert.equal(accept.status, 200);
+  assert.equal(accept.body.ok, true);
+  assert.equal(accept.body.data.pigId, pigId);
+
+  const bobNames = await ctx.req.get(`/api/pigs/${pigId}/names`).set(bobAuth);
+  assert.equal(bobNames.status, 200);
+  assert.equal(bobNames.body.ok, true);
+  assert.deepEqual(bobNames.body.data.bob, {
+    name: 'bob',
+    clicks: 0,
+    lastClickAt: null,
+    ownerUsername: 'bob'
+  });
+
+  const bobConfigUpdate = await ctx.req.post(`/api/pigs/${pigId}/config`).set(bobAuth).send({ valuePerClick: 1.25 });
+  assert.equal(bobConfigUpdate.status, 403);
+  assert.equal(bobConfigUpdate.body.ok, false);
+  assert.equal(bobConfigUpdate.body.error.code, 'FORBIDDEN');
+
+  const aliceConfigUpdate = await ctx.req.post(`/api/pigs/${pigId}/config`).set(aliceAuth).send({ valuePerClick: 1.25 });
+  assert.equal(aliceConfigUpdate.status, 200);
+  assert.equal(aliceConfigUpdate.body.ok, true);
+
+  const bobConfig = await ctx.req.get(`/api/pigs/${pigId}/config`).set(bobAuth);
+  assert.equal(bobConfig.status, 200);
+  assert.equal(bobConfig.body.ok, true);
+  assert.equal(bobConfig.body.data.valuePerClick, 1.25);
+
+  const bobIncrement = await ctx.req.post(`/api/pigs/${pigId}/increment/bob`).set(bobAuth).send({});
+  assert.equal(bobIncrement.status, 200);
+  assert.equal(bobIncrement.body.ok, true);
+
+  const bobIncrementOther = await ctx.req.post(`/api/pigs/${pigId}/increment/alice`).set(bobAuth).send({});
+  assert.equal(bobIncrementOther.status, 403);
+  assert.equal(bobIncrementOther.body.ok, false);
+  assert.equal(bobIncrementOther.body.error.code, 'FORBIDDEN');
 });
