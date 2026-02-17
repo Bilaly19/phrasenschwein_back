@@ -155,6 +155,32 @@ test('GET /api/names returns shared board for all users', async (t) => {
   assert.ok(allNames.body.data.bob);
 });
 
+test('login recreates missing own name entry automatically', async (t) => {
+  const ctx = await createContractContext();
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const firstLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${firstLogin.token}` };
+
+  const deleteSelf = await ctx.req.delete('/api/delete/alice').set(auth);
+  assert.equal(deleteSelf.status, 200);
+  assert.equal(deleteSelf.body.ok, true);
+
+  const namesAfterDelete = await ctx.req.get('/api/names');
+  assert.equal(namesAfterDelete.body.data.alice, undefined);
+
+  await loginUser(ctx.req, 'alice');
+
+  const namesAfterRelogin = await ctx.req.get('/api/names');
+  assert.deepEqual(namesAfterRelogin.body.data.alice, {
+    name: 'alice',
+    clicks: 0,
+    lastClickAt: null,
+    ownerUsername: 'alice'
+  });
+});
+
 test('user cannot increment or delete someone else entry (403)', async (t) => {
   const ctx = await createContractContext();
   t.after(async () => ctx.cleanup());

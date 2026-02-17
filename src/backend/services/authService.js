@@ -41,6 +41,13 @@ class AuthService {
     return !Number.isFinite(expiresAt) || expiresAt <= Date.now();
   }
 
+  async ensureNameEntry(username) {
+    const existing = await this.namesRepository.getName(username);
+    if (existing) return;
+
+    await this.namesRepository.addName(username, username);
+  }
+
   hasAdminRole(actor) {
     if (typeof actor?.role === 'string' && actor.role.toUpperCase() === 'ADMIN') {
       return true;
@@ -158,6 +165,8 @@ class AuthService {
       throw new AppError(401, 'LOGIN_FAILED', 'Login fehlgeschlagen');
     }
 
+    await this.ensureNameEntry(normalizedUsername);
+
     const token = crypto.randomUUID();
     const tokenHash = this.hashSessionToken(token);
     const session = this.buildSession(normalizedUsername);
@@ -202,6 +211,7 @@ class AuthService {
     }
 
     const user = await this.usersRepository.findUser(session.username);
+    await this.ensureNameEntry(session.username);
 
     return {
       ...session,
