@@ -25,6 +25,7 @@ Copy-Item .env.example .env
 ```powershell
 Copy-Item data.example.json data.json
 Copy-Item users.example.json users.json
+Copy-Item pigs.example.json pigs.json
 ```
 3. Optional development seed user:
 - Set `DEV_SEED_USER=1`
@@ -32,7 +33,7 @@ Copy-Item users.example.json users.json
 - Optional: set `DEV_SEED_IS_ADMIN=1` to seed with roles `['admin', 'user']`
 - This only runs when `NODE_ENV=development` and is ignored in production.
 
-`data.json`, `users.json`, and `.env` are local-only and ignored by git.
+`data.json`, `users.json`, `pigs.json`, and `.env` are local-only and ignored by git.
 
 ## Run
 
@@ -74,8 +75,9 @@ npm run lint
 2. Ensure local storage files exist before boot:
 - `data.json` must exist
 - `users.json` must exist
+- `pigs.json` must exist
 3. Confirm those storage files are not tracked by git:
-- `data.json` and `users.json` are ignored and should stay local-only
+- `data.json`, `users.json`, and `pigs.json` are ignored and should stay local-only
 4. Start server:
 ```sh
 npm start
@@ -89,6 +91,7 @@ npm start
 - `CORS_ORIGINS` (legacy alias for `CORS_ALLOWED_ORIGINS`)
 - `DATA_PATH` (default: `./data.json`)
 - `USERS_PATH` (default: `./users.json`)
+- `PIGS_PATH` (default: `./pigs.json`)
 - `DEV_SEED_USER` (default: `0`; when set to `1` in development, creates a default user if missing)
 - `DEV_SEED_IS_ADMIN` (default: `0`; when set to `1` with `DEV_SEED_USER=1`, seeds roles `['admin', 'user']`)
 - `DEV_SEED_USERNAME` (required when `DEV_SEED_USER=1`)

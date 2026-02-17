@@ -1,6 +1,7 @@
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 const PERSON_NAME_REGEX = /^[\p{L} -]+$/u;
 const CONTROL_CHAR_REGEX = /[\x00-\x1F\x7F]/;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function validationResult(details) {
   if (!details.length) return { success: true };
@@ -103,6 +104,63 @@ function emptyBodySchema(payload) {
   return validationResult([{ path: '', message: 'Body muss ein JSON-Objekt sein' }]);
 }
 
+function pigIdParamsSchema(payload) {
+  const details = [];
+  const pigId = typeof payload?.pigId === 'string' ? payload.pigId.trim() : '';
+  if (!pigId || !UUID_REGEX.test(pigId)) {
+    details.push({ path: 'pigId', message: 'pigId muss eine UUID sein' });
+  }
+  return validationResult(details);
+}
+
+function createPigSchema(payload) {
+  const details = [];
+  const title = typeof payload?.title === 'string' ? payload.title.trim() : '';
+
+  if (title) {
+    if (title.length < 1 || title.length > 60) {
+      details.push({ path: 'title', message: 'title muss 1-60 Zeichen lang sein' });
+    } else if (CONTROL_CHAR_REGEX.test(title)) {
+      details.push({ path: 'title', message: 'title darf keine Steuerzeichen enthalten' });
+    }
+  }
+
+  return validationResult(details);
+}
+
+function createInviteSchema(payload) {
+  const details = [];
+  const maxUses = payload?.maxUses;
+  const ttlHours = payload?.ttlHours;
+
+  if (maxUses !== undefined) {
+    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 100) {
+      details.push({ path: 'maxUses', message: 'maxUses muss eine ganze Zahl zwischen 1 und 100 sein' });
+    }
+  }
+
+  if (ttlHours !== undefined) {
+    if (!Number.isInteger(ttlHours) || ttlHours < 1 || ttlHours > 24 * 30) {
+      details.push({ path: 'ttlHours', message: 'ttlHours muss eine ganze Zahl zwischen 1 und 720 sein' });
+    }
+  }
+
+  return validationResult(details);
+}
+
+function acceptInviteSchema(payload) {
+  const details = [];
+  const token = typeof payload?.token === 'string' ? payload.token.trim() : '';
+
+  if (token.length < 8 || token.length > 200) {
+    details.push({ path: 'token', message: 'token muss 8-200 Zeichen lang sein' });
+  } else if (CONTROL_CHAR_REGEX.test(token)) {
+    details.push({ path: 'token', message: 'token darf keine Steuerzeichen enthalten' });
+  }
+
+  return validationResult(details);
+}
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -111,5 +169,9 @@ module.exports = {
   incrementParamsSchema,
   usernameParamsSchema,
   roleUpdateSchema,
-  emptyBodySchema
+  emptyBodySchema,
+  pigIdParamsSchema,
+  createPigSchema,
+  createInviteSchema,
+  acceptInviteSchema
 };

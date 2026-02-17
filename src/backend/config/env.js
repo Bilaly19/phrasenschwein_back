@@ -71,6 +71,7 @@ function loadEnv() {
     paypalDonationUrl: process.env.PAYPAL_DONATION_URL?.trim() || null,
     dataPath: parseResolvedPath(rootDir, process.env.DATA_PATH, './data.json'),
     usersPath: parseResolvedPath(rootDir, process.env.USERS_PATH, './users.json'),
+    pigsPath: parseResolvedPath(rootDir, process.env.PIGS_PATH, './pigs.json'),
     authRateLimitWindowMs: parsePositiveNumber(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     authRateLimitMax: parsePositiveNumber(process.env.AUTH_RATE_LIMIT_MAX, 20),
     authAccountRateLimitMax: parsePositiveNumber(

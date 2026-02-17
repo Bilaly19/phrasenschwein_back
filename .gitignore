@@ -33,3 +33,4 @@ coverage
 .env.local
 data.json
 users.json
+pigs.json
