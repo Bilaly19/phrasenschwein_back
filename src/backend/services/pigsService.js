@@ -58,6 +58,21 @@ class PigsService {
     return pig;
   }
 
+  async assertPigMember(pigId, username) {
+    const pig = await this.pigsRepository.getPig(pigId);
+    if (!pig) {
+      throw new AppError(404, 'PIG_NOT_FOUND', 'Phrasenschwein nicht gefunden');
+    }
+
+    const normalizedUsername = normalizeUsername(username);
+    const role = pig.members?.[normalizedUsername]?.role || null;
+    if (!role) {
+      throw new AppError(403, 'FORBIDDEN', 'Nicht erlaubt');
+    }
+
+    return { pig, role };
+  }
+
   async createInviteByActor(actor, pigId, { maxUses, ttlHours } = {}) {
     const normalizedUsername = normalizeUsername(actor?.username);
     if (!normalizedUsername) {
@@ -128,6 +143,78 @@ class PigsService {
         throw new AppError(410, 'INVITE_MAX_USES_REACHED', 'Invite wurde bereits verwendet');
       default:
         throw new AppError(400, 'INVITE_INVALID', 'Invite-Code ist ungueltig');
+    }
+  }
+
+  assertOwnership(requestedUsername, authUsername) {
+    if (normalizeUsername(requestedUsername) !== normalizeUsername(authUsername)) {
+      throw new AppError(403, 'FORBIDDEN', 'Nicht erlaubt');
+    }
+  }
+
+  async getPigNamesByActor(actor, pigId) {
+    const normalizedUsername = normalizeUsername(actor?.username);
+    await this.assertPigMember(pigId, normalizedUsername);
+
+    const names = await this.pigsRepository.getPigNames(pigId);
+    if (!names) {
+      throw new AppError(404, 'PIG_NOT_FOUND', 'Phrasenschwein nicht gefunden');
+    }
+
+    return names;
+  }
+
+  async getPigConfigByActor(actor, pigId) {
+    const normalizedUsername = normalizeUsername(actor?.username);
+    await this.assertPigMember(pigId, normalizedUsername);
+
+    const config = await this.pigsRepository.getPigConfig(pigId);
+    if (!config) {
+      throw new AppError(404, 'PIG_NOT_FOUND', 'Phrasenschwein nicht gefunden');
+    }
+
+    return config;
+  }
+
+  async updatePigConfigByActor(actor, pigId, valuePerClick) {
+    const normalizedUsername = normalizeUsername(actor?.username);
+    await this.assertPigAdmin(pigId, normalizedUsername);
+
+    const updated = await this.pigsRepository.setPigValuePerClick(pigId, valuePerClick);
+    if (!updated) {
+      throw new AppError(404, 'PIG_NOT_FOUND', 'Phrasenschwein nicht gefunden');
+    }
+  }
+
+  async incrementOwnByActor(actor, pigId, username) {
+    const normalizedUsername = normalizeUsername(actor?.username);
+    await this.assertPigMember(pigId, normalizedUsername);
+    this.assertOwnership(username, normalizedUsername);
+
+    const ok = await this.pigsRepository.incrementName(pigId, normalizedUsername);
+    if (!ok) {
+      throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
+    }
+  }
+
+  async resetOwnByActor(actor, pigId) {
+    const normalizedUsername = normalizeUsername(actor?.username);
+    await this.assertPigMember(pigId, normalizedUsername);
+
+    const ok = await this.pigsRepository.resetName(pigId, normalizedUsername);
+    if (!ok) {
+      throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
+    }
+  }
+
+  async deleteOwnByActor(actor, pigId, username) {
+    const normalizedUsername = normalizeUsername(actor?.username);
+    await this.assertPigMember(pigId, normalizedUsername);
+    this.assertOwnership(username, normalizedUsername);
+
+    const ok = await this.pigsRepository.deleteName(pigId, normalizedUsername);
+    if (!ok) {
+      throw new AppError(404, 'NAME_NOT_FOUND', 'Name nicht gefunden');
     }
   }
 }

@@ -1,7 +1,7 @@
 const express = require('express');
 const { asyncHandler } = require('../utils/http');
 const { validateBody, validateParams } = require('../validators/validate');
-const { createPigSchema, createInviteSchema, pigIdParamsSchema } = require('../validators/schemas');
+const { createPigSchema, createInviteSchema, pigIdParamsSchema, configSchema, usernameParamsSchema, emptyBodySchema } = require('../validators/schemas');
 
 function createPigsRoutes({ pigsController, authMiddleware }) {
   const router = express.Router();
@@ -16,10 +16,35 @@ function createPigsRoutes({ pigsController, authMiddleware }) {
     asyncHandler(pigsController.createInvite)
   );
 
+  router.get('/pigs/:pigId/names', authMiddleware, validateParams(pigIdParamsSchema), asyncHandler(pigsController.getNames));
+  router.get('/pigs/:pigId/config', authMiddleware, validateParams(pigIdParamsSchema), asyncHandler(pigsController.getConfig));
+  router.post('/pigs/:pigId/config', authMiddleware, validateParams(pigIdParamsSchema), validateBody(configSchema), asyncHandler(pigsController.updateConfig));
+
+  router.post(
+    '/pigs/:pigId/increment/:username',
+    authMiddleware,
+    validateParams(pigIdParamsSchema),
+    validateParams(usernameParamsSchema),
+    asyncHandler(pigsController.incrementName)
+  );
+  router.post(
+    '/pigs/:pigId/reset',
+    authMiddleware,
+    validateParams(pigIdParamsSchema),
+    validateBody(emptyBodySchema),
+    asyncHandler(pigsController.resetMine)
+  );
+  router.delete(
+    '/pigs/:pigId/delete/:username',
+    authMiddleware,
+    validateParams(pigIdParamsSchema),
+    validateParams(usernameParamsSchema),
+    asyncHandler(pigsController.deleteName)
+  );
+
   return router;
 }
 
 module.exports = {
   createPigsRoutes
 };
-

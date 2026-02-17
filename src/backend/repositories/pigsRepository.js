@@ -38,6 +38,35 @@ function normalizePig(pig) {
   };
 }
 
+function normalizeNameEntry(key, entry) {
+  const normalizedKey = normalizeUsername(key);
+
+  if (!entry || typeof entry !== 'object') {
+    return buildNameEntry(normalizedKey);
+  }
+
+  const legacyClicks = Number.isFinite(entry.count) ? entry.count : 0;
+  const clicks = Number.isFinite(entry.clicks) ? entry.clicks : legacyClicks;
+  const lastClickAt = typeof entry.lastClickAt === 'string'
+    ? entry.lastClickAt
+    : (typeof entry.lastClickedAt === 'string' ? entry.lastClickedAt : null);
+
+  const ownerUsername = typeof entry.ownerUsername === 'string' && entry.ownerUsername.trim()
+    ? entry.ownerUsername.trim().toLowerCase()
+    : normalizedKey;
+
+  const name = typeof entry.name === 'string' && entry.name.trim()
+    ? entry.name.trim().toLowerCase()
+    : normalizedKey;
+
+  return {
+    name,
+    clicks,
+    lastClickAt,
+    ownerUsername
+  };
+}
+
 function buildNameEntry(username) {
   const normalized = normalizeUsername(username);
   return {
@@ -99,6 +128,38 @@ class JsonPigsRepository {
     const data = await this.readRaw();
     const pig = normalizePig(data.pigs[pigId]);
     return pig || null;
+  }
+
+  async getPigNames(pigId) {
+    const pig = await this.getPig(pigId);
+    if (!pig) return null;
+
+    const normalized = {};
+    for (const [name, entry] of Object.entries(pig.names || {})) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const normalizedKey = normalizeUsername(name);
+      normalized[normalizedKey] = normalizeNameEntry(normalizedKey, entry);
+    }
+    return normalized;
+  }
+
+  async getPigConfig(pigId) {
+    const pig = await this.getPig(pigId);
+    if (!pig) return null;
+    return { valuePerClick: pig.valuePerClick };
+  }
+
+  async setPigValuePerClick(pigId, valuePerClick) {
+    return withFileLock(this.pigsPath, async () => {
+      const data = await this.readRaw();
+      const pig = normalizePig(data.pigs[pigId]);
+      if (!pig) return false;
+
+      pig.valuePerClick = valuePerClick;
+      data.pigs[pigId] = pig;
+      await this.writeRaw(data);
+      return true;
+    });
   }
 
   async createPig({ title, createdBy }) {
@@ -207,10 +268,71 @@ class JsonPigsRepository {
       return { ok: false, reason: 'INVITE_NOT_FOUND' };
     });
   }
+
+  async incrementName(pigId, username) {
+    const normalizedUsername = normalizeUsername(username);
+
+    return withFileLock(this.pigsPath, async () => {
+      const data = await this.readRaw();
+      const pig = normalizePig(data.pigs[pigId]);
+      if (!pig) return false;
+
+      pig.names = pig.names && typeof pig.names === 'object' ? pig.names : {};
+      if (!pig.names[normalizedUsername]) return false;
+
+      const entry = normalizeNameEntry(normalizedUsername, pig.names[normalizedUsername]);
+      entry.clicks += 1;
+      entry.lastClickAt = new Date().toISOString();
+      pig.names[normalizedUsername] = entry;
+
+      data.pigs[pigId] = pig;
+      await this.writeRaw(data);
+      return true;
+    });
+  }
+
+  async resetName(pigId, username) {
+    const normalizedUsername = normalizeUsername(username);
+
+    return withFileLock(this.pigsPath, async () => {
+      const data = await this.readRaw();
+      const pig = normalizePig(data.pigs[pigId]);
+      if (!pig) return false;
+
+      pig.names = pig.names && typeof pig.names === 'object' ? pig.names : {};
+      if (!pig.names[normalizedUsername]) return false;
+
+      const entry = normalizeNameEntry(normalizedUsername, pig.names[normalizedUsername]);
+      entry.clicks = 0;
+      entry.lastClickAt = null;
+      pig.names[normalizedUsername] = entry;
+
+      data.pigs[pigId] = pig;
+      await this.writeRaw(data);
+      return true;
+    });
+  }
+
+  async deleteName(pigId, username) {
+    const normalizedUsername = normalizeUsername(username);
+
+    return withFileLock(this.pigsPath, async () => {
+      const data = await this.readRaw();
+      const pig = normalizePig(data.pigs[pigId]);
+      if (!pig) return false;
+
+      pig.names = pig.names && typeof pig.names === 'object' ? pig.names : {};
+      if (!pig.names[normalizedUsername]) return false;
+
+      delete pig.names[normalizedUsername];
+      data.pigs[pigId] = pig;
+      await this.writeRaw(data);
+      return true;
+    });
+  }
 }
 
 module.exports = {
   JsonPigsRepository,
   hashInviteToken
 };
-

@@ -22,9 +22,44 @@ class PigsController {
     this.logger.info({ actor: req.auth.username, pigId, inviteId: payload.invite.id }, 'Invite erstellt');
     res.status(201).json({ ok: true, data: payload });
   };
+
+  getNames = async (req, res) => {
+    const { pigId } = req.params;
+    const names = await this.pigsService.getPigNamesByActor(req.auth, pigId);
+    res.json({ ok: true, data: names });
+  };
+
+  getConfig = async (req, res) => {
+    const { pigId } = req.params;
+    const config = await this.pigsService.getPigConfigByActor(req.auth, pigId);
+    res.json({ ok: true, data: config });
+  };
+
+  updateConfig = async (req, res) => {
+    const { pigId } = req.params;
+    await this.pigsService.updatePigConfigByActor(req.auth, pigId, req.body.valuePerClick);
+    res.json({ ok: true, data: { message: 'Wert gespeichert' } });
+  };
+
+  incrementName = async (req, res) => {
+    const { pigId, username } = req.params;
+    await this.pigsService.incrementOwnByActor(req.auth, pigId, username);
+    res.json({ ok: true, data: { message: 'Zaehler erhoeht' } });
+  };
+
+  resetMine = async (req, res) => {
+    const { pigId } = req.params;
+    await this.pigsService.resetOwnByActor(req.auth, pigId);
+    res.json({ ok: true, data: { message: 'Zurueckgesetzt' } });
+  };
+
+  deleteName = async (req, res) => {
+    const { pigId, username } = req.params;
+    await this.pigsService.deleteOwnByActor(req.auth, pigId, username);
+    res.json({ ok: true, data: { message: 'Name geloescht' } });
+  };
 }
 
 module.exports = {
   PigsController
 };
-

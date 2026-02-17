@@ -10,12 +10,17 @@ class AuthController {
   register = async (req, res) => {
     const { username, firstName, lastName, password } = req.body;
     const user = await this.authService.register({ username, firstName, lastName, password });
+    const loginResult = await this.authService.login(username, password);
 
     this.logger.info({ username: user.username }, 'Benutzer registriert');
     res.status(201).json({
       ok: true,
       data: {
-        user
+        user,
+        token: loginResult.token,
+        username: loginResult.username,
+        role: loginResult.role,
+        expiresAt: loginResult.expiresAt
       }
     });
   };
