@@ -176,11 +176,11 @@ class PigsService {
     return config;
   }
 
-  async updatePigConfigByActor(actor, pigId, valuePerClick) {
+  async updatePigConfigByActor(actor, pigId, { valuePerClick, paypalLink }) {
     const normalizedUsername = normalizeUsername(actor?.username);
     await this.assertPigAdmin(pigId, normalizedUsername);
 
-    const updated = await this.pigsRepository.setPigValuePerClick(pigId, valuePerClick);
+    const updated = await this.pigsRepository.setPigConfig(pigId, { valuePerClick, paypalLink });
     if (!updated) {
       throw new AppError(404, 'PIG_NOT_FOUND', 'Phrasenschwein nicht gefunden');
     }

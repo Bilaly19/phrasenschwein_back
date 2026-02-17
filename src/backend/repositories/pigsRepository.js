@@ -23,6 +23,7 @@ function normalizePig(pig) {
   if (!id) return null;
 
   const valuePerClick = Number.isFinite(pig.valuePerClick) ? pig.valuePerClick : DEFAULT_VALUE_PER_CLICK;
+  const paypalLink = typeof pig.paypalLink === 'string' ? pig.paypalLink.trim() : '';
   const members = pig.members && typeof pig.members === 'object' ? pig.members : {};
   const names = pig.names && typeof pig.names === 'object' ? pig.names : {};
   const invites = Array.isArray(pig.invites) ? pig.invites : [];
@@ -32,6 +33,7 @@ function normalizePig(pig) {
     id,
     title: normalizePigTitle(pig.title),
     valuePerClick,
+    paypalLink,
     members,
     names,
     invites
@@ -146,16 +148,17 @@ class JsonPigsRepository {
   async getPigConfig(pigId) {
     const pig = await this.getPig(pigId);
     if (!pig) return null;
-    return { valuePerClick: pig.valuePerClick };
+    return { valuePerClick: pig.valuePerClick, paypalLink: pig.paypalLink || '' };
   }
 
-  async setPigValuePerClick(pigId, valuePerClick) {
+  async setPigConfig(pigId, { valuePerClick, paypalLink }) {
     return withFileLock(this.pigsPath, async () => {
       const data = await this.readRaw();
       const pig = normalizePig(data.pigs[pigId]);
       if (!pig) return false;
 
       pig.valuePerClick = valuePerClick;
+      pig.paypalLink = typeof paypalLink === 'string' ? paypalLink.trim() : '';
       data.pigs[pigId] = pig;
       await this.writeRaw(data);
       return true;
@@ -176,6 +179,7 @@ class JsonPigsRepository {
         createdAt: now,
         createdBy: normalizedCreatedBy,
         valuePerClick: DEFAULT_VALUE_PER_CLICK,
+        paypalLink: '',
         members: {
           [normalizedCreatedBy]: buildMember(normalizedCreatedBy, 'admin')
         },

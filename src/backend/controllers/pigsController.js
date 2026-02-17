@@ -37,7 +37,10 @@ class PigsController {
 
   updateConfig = async (req, res) => {
     const { pigId } = req.params;
-    await this.pigsService.updatePigConfigByActor(req.auth, pigId, req.body.valuePerClick);
+    await this.pigsService.updatePigConfigByActor(req.auth, pigId, {
+      valuePerClick: req.body.valuePerClick,
+      paypalLink: req.body.paypalLink
+    });
     res.json({ ok: true, data: { message: 'Wert gespeichert' } });
   };
 

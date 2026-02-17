@@ -60,6 +60,19 @@ function configSchema(payload) {
   if (typeof payload?.valuePerClick !== 'number' || Number.isNaN(payload.valuePerClick) || payload.valuePerClick < 0 || payload.valuePerClick > 1000) {
     details.push({ path: 'valuePerClick', message: 'valuePerClick muss zwischen 0 und 1000 sein' });
   }
+
+  if (payload?.paypalLink !== undefined) {
+    if (typeof payload.paypalLink !== 'string' || payload.paypalLink.length > 2048) {
+      details.push({ path: 'paypalLink', message: 'paypalLink muss ein String mit maximal 2048 Zeichen sein' });
+    } else {
+      const trimmed = payload.paypalLink.trim();
+      if (CONTROL_CHAR_REGEX.test(trimmed)) {
+        details.push({ path: 'paypalLink', message: 'paypalLink darf keine Steuerzeichen enthalten' });
+      } else if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+        details.push({ path: 'paypalLink', message: 'paypalLink muss mit http:// oder https:// beginnen' });
+      }
+    }
+  }
   return validationResult(details);
 }
 
