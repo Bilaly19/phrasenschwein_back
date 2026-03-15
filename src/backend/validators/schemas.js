@@ -174,6 +174,42 @@ function acceptInviteSchema(payload) {
   return validationResult(details);
 }
 
+function assistantChatSchema(payload) {
+  const details = [];
+  const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+
+  if (message.length < 1 || message.length > 2000) {
+    details.push({ path: 'message', message: 'message muss 1-2000 Zeichen lang sein' });
+  }
+
+  if (payload?.includePortfolio !== undefined && typeof payload.includePortfolio !== 'boolean') {
+    details.push({ path: 'includePortfolio', message: 'includePortfolio muss ein Boolean sein' });
+  }
+
+  if (payload?.history !== undefined) {
+    if (!Array.isArray(payload.history)) {
+      details.push({ path: 'history', message: 'history muss ein Array sein' });
+    } else if (payload.history.length > 20) {
+      details.push({ path: 'history', message: 'history darf maximal 20 Eintraege enthalten' });
+    } else {
+      payload.history.forEach((entry, index) => {
+        const role = entry?.role;
+        const content = typeof entry?.content === 'string' ? entry.content.trim() : '';
+
+        if (role !== 'user' && role !== 'assistant') {
+          details.push({ path: `history[${index}].role`, message: 'role muss user oder assistant sein' });
+        }
+
+        if (content.length < 1 || content.length > 2000) {
+          details.push({ path: `history[${index}].content`, message: 'content muss 1-2000 Zeichen lang sein' });
+        }
+      });
+    }
+  }
+
+  return validationResult(details);
+}
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -186,5 +222,6 @@ module.exports = {
   pigIdParamsSchema,
   createPigSchema,
   createInviteSchema,
-  acceptInviteSchema
+  acceptInviteSchema,
+  assistantChatSchema
 };

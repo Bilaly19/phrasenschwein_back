@@ -7,30 +7,35 @@ const { createLogger, createRequestLogger } = require('../logging/logger');
 const { createRateLimiter } = require('../middlewares/rateLimit');
 const { createAuthMiddleware } = require('../middlewares/authSession');
 const { createErrorHandler, notFoundHandler } = require('../middlewares/errorHandler');
-const { JsonNamesRepository } = require('../repositories/namesRepository');
-const { JsonUsersRepository } = require('../repositories/usersRepository');
-const { JsonPigsRepository } = require('../repositories/pigsRepository');
+const { createDb } = require('../repositories/sqliteDb');
+const { SqliteNamesRepository } = require('../repositories/sqliteNamesRepository');
+const { SqliteUsersRepository } = require('../repositories/sqliteUsersRepository');
+const { SqlitePigsRepository } = require('../repositories/sqlitePigsRepository');
 const { NamesService } = require('../services/namesService');
 const { AuthService } = require('../services/authService');
 const { PigsService } = require('../services/pigsService');
+const { AssistantService } = require('../services/assistantService');
 const { NamesController } = require('../controllers/namesController');
 const { AuthController } = require('../controllers/authController');
 const { UsersController } = require('../controllers/usersController');
 const { PigsController } = require('../controllers/pigsController');
 const { InvitesController } = require('../controllers/invitesController');
+const { AssistantController } = require('../controllers/assistantController');
 const { createNamesRoutes } = require('../routes/namesRoutes');
 const { createAuthRoutes } = require('../routes/authRoutes');
 const { createUsersRoutes } = require('../routes/usersRoutes');
 const { createPigsRoutes } = require('../routes/pigsRoutes');
 const { createInvitesRoutes } = require('../routes/invitesRoutes');
+const { createAssistantRoutes } = require('../routes/assistantRoutes');
 
 function buildContainer(overrides = {}) {
   const config = { ...loadEnv(), ...(overrides.config || {}) };
   const logger = overrides.logger || createLogger(config);
 
-  const namesRepository = overrides.namesRepository || new JsonNamesRepository({ dataPath: config.dataPath });
-  const usersRepository = overrides.usersRepository || new JsonUsersRepository({ usersPath: config.usersPath });
-  const pigsRepository = overrides.pigsRepository || new JsonPigsRepository({ pigsPath: config.pigsPath });
+  const db = overrides.db || createDb(config.dbPath);
+  const namesRepository = overrides.namesRepository || new SqliteNamesRepository({ db });
+  const usersRepository = overrides.usersRepository || new SqliteUsersRepository({ db });
+  const pigsRepository = overrides.pigsRepository || new SqlitePigsRepository({ db });
 
   const namesService = overrides.namesService || new NamesService({ namesRepository });
   const authService = overrides.authService || new AuthService({
@@ -41,27 +46,35 @@ function buildContainer(overrides = {}) {
     bcryptRounds: config.bcryptRounds
   });
   const pigsService = overrides.pigsService || new PigsService({ pigsRepository });
+  const assistantService = overrides.assistantService || new AssistantService({
+    config,
+    pigsService
+  });
 
   const namesController = overrides.namesController || new NamesController({ namesService, config });
   const authController = overrides.authController || new AuthController({ authService, logger });
   const usersController = overrides.usersController || new UsersController({ authService, logger });
   const pigsController = overrides.pigsController || new PigsController({ pigsService, logger });
   const invitesController = overrides.invitesController || new InvitesController({ pigsService, logger });
+  const assistantController = overrides.assistantController || new AssistantController({ assistantService });
 
   return {
     config,
     logger,
+    db,
     namesRepository,
     usersRepository,
     pigsRepository,
     namesService,
     authService,
     pigsService,
+    assistantService,
     namesController,
     authController,
     usersController,
     pigsController,
-    invitesController
+    invitesController,
+    assistantController
   };
 }
 
@@ -126,6 +139,13 @@ function createApp(overrides = {}) {
     invitesController: container.invitesController,
     authMiddleware
   }));
+  const assistantRoutes = createAssistantRoutes({
+    assistantController: container.assistantController,
+    authMiddleware
+  });
+
+  app.use('/api', assistantRoutes);
+  app.use('/', assistantRoutes);
 
   app.use(notFoundHandler);
   app.use(createErrorHandler({ logger: container.logger }));

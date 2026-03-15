@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const { AppError } = require('../utils/http');
-const { hashInviteToken } = require('../repositories/pigsRepository');
+const { hashInviteToken } = require('../repositories/sqlitePigsRepository');
 
 function normalizeUsername(username) {
   return typeof username === 'string' ? username.trim().toLowerCase() : '';

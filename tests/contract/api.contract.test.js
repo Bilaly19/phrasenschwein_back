@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const request = require('supertest');
@@ -31,8 +32,16 @@ async function createContractContext(options = {}) {
       corsOrigins: ['http://localhost:5173'],
       authRateLimitMax: 1000,
       authAccountRateLimitMax: 1000,
-      authLogoutRateLimitMax: 1000
-    }
+      authLogoutRateLimitMax: 1000,
+      openaiApiKey: options.openaiApiKey || '',
+      openaiModel: options.openaiModel || 'gpt-4o-mini',
+      openaiBaseUrl: options.openaiBaseUrl || 'https://api.openai.com/v1',
+      openaiTimeoutMs: 1000,
+      assistantMaxHistory: 8,
+      assistantMaxPigs: 12,
+      ...(options.config || {})
+    },
+    ...(options.overrides || {})
   });
 
   return {
@@ -333,4 +342,134 @@ test('pig creator is admin; invite joins member; valuePerClick is per pig', asyn
   assert.equal(bobIncrementOther.status, 403);
   assert.equal(bobIncrementOther.body.ok, false);
   assert.equal(bobIncrementOther.body.error.code, 'FORBIDDEN');
+});
+
+test('POST /api/assistant/chat returns local fallback when assistant is not configured', async (t) => {
+  const ctx = await createContractContext({ openaiApiKey: '' });
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${aliceLogin.token}` };
+
+  const res = await ctx.req.post('/api/assistant/chat').set(auth).send({
+    message: 'Wie viel schulde ich insgesamt?'
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.data.model, 'local-phrasenagent');
+  assert.match(res.body.data.reply, /lokalen Modus/i);
+});
+
+test('POST /api/assistant/chat falls back locally when upstream returns 429', async (t) => {
+  const upstream = http.createServer((_req, res) => {
+    res.statusCode = 429;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: { message: 'rate limit' } }));
+  });
+
+  await new Promise((resolve, reject) => {
+    upstream.listen(0, '127.0.0.1', (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+
+  t.after(async () => {
+    await new Promise((resolve, reject) => {
+      upstream.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  });
+
+  const address = upstream.address();
+  const upstreamPort = typeof address === 'object' && address ? address.port : 0;
+  assert.ok(upstreamPort > 0);
+
+  const ctx = await createContractContext({
+    openaiApiKey: 'sk-mock',
+    openaiBaseUrl: `http://127.0.0.1:${upstreamPort}`
+  });
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${aliceLogin.token}` };
+
+  const res = await ctx.req.post('/api/assistant/chat').set(auth).send({
+    message: 'Kannst du kurz zusammenfassen?'
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.data.model, 'local-phrasenagent');
+  assert.match(res.body.data.reply, /HTTP 429/);
+  assert.match(res.body.data.reply, /lokalen Fallback/i);
+});
+
+test('POST /assistant/chat legacy alias returns local fallback', async (t) => {
+  const ctx = await createContractContext({ openaiApiKey: '' });
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${aliceLogin.token}` };
+
+  const res = await ctx.req.post('/assistant/chat').set(auth).send({
+    message: 'Kurze Zusammenfassung bitte'
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.data.model, 'local-phrasenagent');
+});
+
+test('POST /api/assistant/chat returns mocked response with authenticated actor', async (t) => {
+  const mockAssistantService = {
+    async chatByActor(actor, payload) {
+      return {
+        reply: `Hallo @${actor.username}, du fragst: ${payload.message}`,
+        model: 'mock-model',
+        portfolio: {
+          pigCount: 1,
+          includedPigCount: 1,
+          totalClicks: 3,
+          totalAmount: 1.5
+        }
+      };
+    }
+  };
+
+  const ctx = await createContractContext({
+    openaiApiKey: 'sk-mock',
+    overrides: {
+      assistantService: mockAssistantService
+    }
+  });
+  t.after(async () => ctx.cleanup());
+
+  await registerUser(ctx.req, 'alice');
+  const aliceLogin = await loginUser(ctx.req, 'alice');
+  const auth = { authorization: `Bearer ${aliceLogin.token}` };
+
+  const res = await ctx.req.post('/api/assistant/chat').set(auth).send({
+    message: 'Gib mir eine kurze Zusammenfassung.',
+    history: [{ role: 'user', content: 'Vorherige Nachricht' }],
+    includePortfolio: true
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.data.model, 'mock-model');
+  assert.match(res.body.data.reply, /^Hallo @alice,/);
+  assert.equal(res.body.data.portfolio.pigCount, 1);
 });

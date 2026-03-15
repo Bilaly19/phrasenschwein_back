@@ -104,6 +104,12 @@ npm start
 - `AUTH_ACCOUNT_RATE_LIMIT_MAX` (default: `AUTH_RATE_LIMIT_MAX`)
 - `AUTH_LOGOUT_RATE_LIMIT_MAX` (default: `max(AUTH_RATE_LIMIT_MAX, 60)`)
 - `PAYPAL_DONATION_URL` (optional)
+- `OPENAI_API_KEY` (optional; required for `/api/assistant/chat`)
+- `OPENAI_MODEL` (default: `gpt-4o-mini`)
+- `OPENAI_BASE_URL` (default: `https://api.openai.com/v1`)
+- `OPENAI_TIMEOUT_MS` (default: `20000`)
+- `ASSISTANT_MAX_HISTORY` (default: `8`, max: `20`)
+- `ASSISTANT_MAX_PIGS` (default: `12`, max: `50`)
 
 ## Auth endpoint notes
 
@@ -130,3 +136,9 @@ npm start
 - `POST /api/pigs/:pigId/config` updates `valuePerClick` per pig (pig admin only).
 - `POST /api/pigs/:pigId/increment/:username` increments own entry (member only, ownership enforced).
 - `POST /api/pigs/:pigId/reset` resets own entry (member only).
+
+## Assistant endpoint
+
+- `POST /api/assistant/chat` answers chat questions for the authenticated user.
+  Optional `history` messages are supported, and the assistant can use per-user pig portfolio context.
+  Without `OPENAI_API_KEY`, a local fallback response is returned.
